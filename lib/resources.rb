@@ -41,10 +41,12 @@ module Resources
   APP_WEBSITE = 'https://apps.gnome.org/Sessions/'
   APP_ISSUE_URL = 'https://github.com/pojntfx/sessions/issues'
   APP_SUPPORT_URL = 'https://matrix.to/#/#sessions:matrix.org'
-  APP_DONATION_URL = 'https://github.com/sponsors/pojntfx'
-  APP_TRANSLATE_URL = 'https://hosted.weblate.org/projects/sessions/'
-  APP_VCS_URL = 'https://github.com/pojntfx/sessions/'
-  APP_CONTRIBUTE_URL = 'https://welcome.gnome.org/app/Sessions/'
+
+  # The metainfo's other four `<url>` entries — donation, translate, vcs-browser
+  # and contribute — had constants here to feed four `add_link` rows in the
+  # About dialog. Upstream's dialog renders no link rows (see the comment at the
+  # top of lib/about_dialog.rb), the rows are gone, and constants nothing reads
+  # are how the next round ends up re-adding them.
 
   # Where upstream's gresource files live in this port.
   DATA_DIR = File.expand_path('../data', __dir__)

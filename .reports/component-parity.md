@@ -143,11 +143,18 @@ their accelerators resolved, and closed again.
 | arc skipped at remaining 0 while counting down (the red flash) | `dial.go:379` | `#arc_visible?` | parity |
 | arc stroke forced to α 1.0; handle fill left at the theme's α | `dial.go:436-441`, `:489` | `#draw_arc` / `#draw_handle` | parity |
 | full-ring special case when the arc closes | `isFullCircle` branch | Cairo `arc` to `TOP + 2π` | parity |
-| high contrast: hairlines on the r±5 **track** circles | `dial.go:360-373` | `#draw_track:176-178` | parity — **read, not run** |
-| high contrast: hairlines on the r±5 **arcs** | `dial.go:463-477` | `#draw_arc_borders:205-206` | parity — **read, not run** |
-| high contrast: hairline on the handle | `dial.go:490` | `#draw_handle:216-218` | parity — **read, not run** |
-| high contrast: hairline on the **filled wedge** | `dial.go:433`, and `:422` for the full ring | — | **gap** |
-| high contrast: the start cap's hairline | `dial.go:457-458` | `#draw_arc_borders:207-210` | **gap — drawn on the wrong side** |
+| high contrast: hairlines on the r±5 **track** circles | `dial.go:360-373` | `#draw_track` | parity — **run**, `test/drive_high_contrast.rb` |
+| high contrast: hairlines on the r±5 **arcs** | `dial.go:463-477` | `#draw_arc_borders` | parity — **run**, `test/drive_high_contrast.rb` |
+| high contrast: hairline on the handle | `dial.go:490` | `#draw_handle` | parity — **run**, `test/drive_high_contrast.rb` |
+| high contrast: hairline on the **filled wedge** | `dial.go:433`, and `:422` for the full ring | `#stroke_pie` | parity — **fixed and run** |
+| high contrast: the start cap's hairline | `dial.go:457-458` | `#stroke_start_cap` | parity — **fixed and run**; the sweep is `arc_negative` |
+
+The five rows above were, in the round this report was written, two defects and
+three verdicts reached by reading a branch nothing had ever executed.
+`test/drive_high_contrast.rb` executes it now: it turns high contrast on through
+`ADW_DEBUG_HIGH_CONTRAST`, renders the dial in five states, and for the two
+defects reads the pixels back rather than the source. Reverting either fix makes
+it fail.
 
 Messages: none of its own. Stylesheet: none of its own.
 Driven: steps 5, 8, 10-12, 14, 21-24, 26 — the drag, the click, the dead zone,
@@ -245,10 +252,10 @@ whole list.** It does not set `comments`, and it adds no link rows.
 | website / issue / support rows | from appdata urls | setters, same three URLs | ✓ | parity |
 | translator credits | `L("translator-credits")` | `#translator_credits`, empty when untranslated | ✓ | parity |
 | summary + description paragraphs + bullets in `comments` | **not set** | `#comments` | ✓ | **extra** — costs no msgid (they are upstream's, out of the metainfo) but shows text upstream's dialog does not |
-| `Donate` link row | **not present** | `#links` | ✗ | **gap — extra with an untranslated label** |
-| `Translate` link row | **not present** | `#links` | ✗ | **gap — extra with an untranslated label** |
-| `Source Code` link row | **not present** | `#links` | ✗ | **gap — extra with an untranslated label** |
-| `Contribute` link row | **not present** | `#links` | ✗ | **gap — extra with an untranslated label** |
+| `Donate` link row | **not present** | **deleted** | ✓ | parity — the row is gone |
+| `Translate` link row | **not present** | **deleted** | ✓ | parity — the row is gone |
+| `Source Code` link row | **not present** | **deleted** | ✓ | parity — the row is gone |
+| `Contribute` link row | **not present** | **deleted** | ✓ | parity — the row is gone; `test/drive_main_window.rb` checks all four titles are absent |
 
 Messages: 14 upstream msgids in this unit, 14 in the port, byte-identical —
 **plus 4 the port invented**, open here, in `.reports/translation-parity.md` and

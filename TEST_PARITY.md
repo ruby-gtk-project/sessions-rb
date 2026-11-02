@@ -5,8 +5,19 @@
 | Upstream | `origin/main` @ `ad77fb2` |
 | Port | `ruby` |
 | Upstream suite | `pkg/state/machine_test.go`, 991 lines, 10 functions, 42 generated cases |
-| Port suite | `spec/state_machine_spec.rb`, 45 examples, 0 failures |
-| Drivers | `test/drive_main_window.rb`, 19 steps, 34 checks, 7 screenshots; `test/drive_translations.rb`, 5 checks, 2 screenshots |
+| Port suite | `spec/`, 75 examples, 0 failures (`rake spec`) |
+| Drivers | `test/drive_main_window.rb`, 173 checks, 11 screenshots; `test/drive_translations.rb`, 5 checks, 2 screenshots; `test/drive_high_contrast.rb`, 21 checks, 5 screenshots (`rake drive`) |
+| CI | `.github/workflows/ci.yaml` — three jobs: the suite, the three drivers, the catalogues |
+
+The previous revision of this table said "45 examples, 0 failures" and the
+previous revision of `PORTING.md` called that a false green and said zero
+examples had ever run. Both were wrong. 45 examples did run, under one
+invocation — `rspec --options /dev/null --require spec_helper --format progress
+spec` — and under no documented one, because `.rspec` ended in `--format
+RspecJunitFormatter` and that gem is not in the dev shell's `GEM_PATH`. The two
+formatter lines are out of `.rspec` now, `bin/rspec` and `bin/rake` exist for
+the `.gitlab-ci.yml` jobs that call them, and `rake spec` compiles the schema
+and runs the suite.
 
 ---
 
@@ -54,7 +65,8 @@ round and the end-to-end rows could not have been written at all.
 ### Running it
 
 ```sh
-nix develop --command rspec spec/state_machine_spec.rb
+nix develop --command rake spec                           # the whole suite, 75 examples
+nix develop --command rspec spec/state_machine_spec.rb    # just this file
 ```
 
 No display needed: `lib/state_machine.rb` and `lib/ticker.rb` pull in `glib2`
@@ -66,28 +78,55 @@ and aborts without a display (`FINDINGS.md`).
 
 ## Open
 
-### The widget layer has a driver, not a spec suite
+### The widget layer has drivers, not a spec suite
 
 `test/drive_main_window.rb` fires every action and both dial gestures and
-asserts 34 things about the result, which is the first time anything in this
-port was observed rather than read. It is not an RSpec suite and it is not run
-by `rake spec`; it needs `xvfb-run` and it takes about ten seconds.
+asserts 173 things about the result; `test/drive_high_contrast.rb` adds 21 under
+high contrast, four of which read the dial's pixels back. Neither is an RSpec
+suite: they are reached by `rake drive` rather than `rake spec`, they need
+`xvfb-run`, and a widget assertion written as a check gets none of RSpec's
+matchers or its `--only-failures`.
 
-Upstream has no widget tests either — its whole suite is `pkg/state` — so this
-is not a parity gap against upstream. It is a gap against what this port needs,
-because the port reimplements a widget tree upstream declares in blueprint, and
-I am recording it rather than letting the driver's existence stand in for
-coverage.
+This is a gap against what this port needs rather than against upstream, whose
+whole suite is `pkg/state` — and recording that does not make it smaller,
+because the port reimplements by hand a widget tree upstream declares in
+blueprint. The drivers' existence is not coverage: it is 194 checks a human has
+to read the output of.
 Upstream: none.
-Port: `test/drive_main_window.rb`.
+Port: `test/drive_main_window.rb`, `test/drive_high_contrast.rb`.
 
-### `lib/metainfo.rb` and `lib/settings.rb` have no specs
+### Closed: `lib/metainfo.rb` and `lib/settings.rb` now have specs
 
-Both are display-free and both parse or persist something, which is exactly the
-shape the `ruby-gtk-testing` skill says to pin with plain checks first. The
-About dialog's four checks in the driver are the only thing exercising
-`Metainfo` today, and nothing at all exercises `Settings`' two construction
-paths — in particular the `SettingsSchemaSource` fallback, which is the one
-that runs from a checkout.
+`spec/metainfo_spec.rb` pins `#summary`, `#description_paragraphs`,
+`#description_bullets`, `#releases`, `#notes_for` and the private `#text_of`
+against a fixture shaped like the merged metainfo — wrapped paragraphs,
+`xml:lang` siblings inside one `<ul>`, inline markup, a release with no
+description. Writing it found the one thing I would have guessed wrong: `msgfmt
+--xml` tags each `<li>` rather than adding a translated `<ul>`, which is why
+the port's filter has to be on the item.
+
+`spec/settings_spec.rb` exercises both of upstream's construction paths against
+`GSETTINGS_BACKEND=memory`: the `SettingsSchemaSource` one every checkout takes,
+and the plain `Gio::Settings.new(APP_ID)` one a Flatpak or distro install takes,
+which nothing had ever executed. It also pins two things reading had got wrong —
+the schema's path has a trailing slash where `Resources::APP_PATH` does not, and
+a directory with no `gschemas.compiled` raises `GLib::FileError` from GLib
+before the port's own "could not find schema" message can fire.
 Upstream: `main.go:43-58` is untested upstream too.
-Port: `lib/metainfo.rb`, `lib/settings.rb`; no `spec/`.
+Port: `spec/metainfo_spec.rb`, `spec/settings_spec.rb`.
+
+### Closed: there is now something that runs the runners
+
+`rake -T` listed seventeen tasks and none was `spec`, `test` or `drive`;
+`.github/workflows/` did not exist; and `.gitlab-ci.yml:59` and `:89` called
+`bin/rspec spec` into a `bin/` that held only `setup` and `turbo_tests2`. So
+the suite ran when a human typed an undocumented flag, and nothing automated
+ran it at all, against upstream's workflow on every push.
+
+`rakelib/spec.rake` defines `spec`, `test`, `drive`, `drive:main_window`,
+`drive:translations`, `drive:high_contrast` and `check`; `bin/rspec` and
+`bin/rake` are the binstubs the GitLab jobs call; `.github/workflows/ci.yaml`
+runs the suite, all three drivers and the catalogues on every push, uploading
+`tmp/shots/` so the screenshots can be looked at.
+Upstream: `.github/workflows`, `go test ./pkg/state/`.
+Port: `rakelib/spec.rake`, `bin/rspec`, `bin/rake`, `.github/workflows/ci.yaml`.

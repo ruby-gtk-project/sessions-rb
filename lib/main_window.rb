@@ -322,6 +322,7 @@ class MainWindow
 
     def on_start_timer
       dial.counting_down = true
+      # TRANSLATORS: Message shown in the background apps list next to the app while the app is running in the background.
       hold_in_background(_('Timer Running'))
     end
 
@@ -340,6 +341,7 @@ class MainWindow
     def on_start_alarm
       dial.remaining_time = 0
       dial.counting_down = true
+      # TRANSLATORS: Message shown in the background apps list next to the app while the app is running in the background and the session has finished.
       hold_in_background(_('Session Finished'))
       dial.sensitive = false
       time_label.add_css_class(Style::ALARMING_CLASS)
@@ -432,6 +434,7 @@ class MainWindow
     # exactly as it did before.
     def hold_in_background(status)
       unless @held
+        # TRANSLATORS: Reason given when requesting permission to run in the background from the system.
         background_portal.request(reason: _('Running the Timer in the Background')) do |granted|
           if granted
             background_portal.status = status

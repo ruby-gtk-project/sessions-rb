@@ -6,13 +6,21 @@
 | Port | `ruby` |
 | Domain | `sessions` — upstream's, never `sessions-rb` |
 | Catalogues | 26 `.po`, copied from upstream unchanged |
-| Messages | 31 upstream msgids; **31 of 31 present in the port** |
+| Messages | 33 upstream msgids; **33 of 33 present in the port, and no extras** |
 | Census | `.claude/skills/translation-parity/scripts/msgid-census.sh` |
 
 Round one shipped no `po/` directory, no gettext gem, no `bindtextdomain` and
-not one `_()`: 0 of 32 messages marked, 0 of 26 languages shipped, and the
+not one `_()`: 0 of 33 messages marked, 0 of 26 languages shipped, and the
 only note about it said the catalogues were "not ported yet", which read as a
 sequencing decision for work that was not scheduled.
+
+This file has also given three different counts for the same thing: 31 msgids
+in the table above, 32 in the paragraph above, 30 in `PORTING.md`, and 27
+catalogues there against 26 here. The count, from
+`msgcat --no-location --sort-output` over both `.pot` files and `ls po/*.po`:
+**33 msgids, 26 catalogues.** The port's `.pot` and upstream's now differ only
+in the header block upstream extracts with `--omit-header`; every msgid and all
+four `TRANSLATORS:` comments match.
 
 ---
 
@@ -28,8 +36,18 @@ writes to a `.po` file except `rake gettext:merge`, which runs `msgmerge`.**
 They are donated work.
 
 `po/sessions.pot` is regenerated, because upstream's referenced
-`../internal/components/*.go` and `../assets/resources/*.blp`. The msgid set
-is upstream's plus the four link titles described below.
+`../internal/components/*.go` and `../assets/resources/*.blp`. The msgid set is
+upstream's exactly: it carried four extra link titles until this round, and
+those are gone with the rows that needed them.
+
+**`rake gettext:merge` will still churn all twenty-six catalogues.** The four
+extra keys that would have added empty `msgstr` entries are resolved, but
+`msgmerge --update` also rewrites every `#:` reference line from upstream's
+`../assets/resources/*` and `../internal/components/*` to this port's `data/`
+and `lib/` paths. That destroys the `cmp`-identical property, which is the
+cheapest available proof that no donated string has been touched — so the task
+is not a routine one to run, and `rakelib/gettext.rake` says so at its
+definition.
 
 ### The binding
 
@@ -93,20 +111,42 @@ upstream does too.
 
 ## Open
 
-### Four link titles in the About dialog are English everywhere
+### Closed: the four extra link titles are gone
 
-`Donate`, `Translate`, `Source Code` and `Contribute`. They are marked with
-`_()` and they are in `po/sessions.pot`, so a translator can supply them — but
-they are not in any of the twenty-six donated catalogues, because upstream
-never had to translate them: `adw_about_dialog_new_from_appdata` adds those
-rows with titles out of libadwaita's own catalogue.
+`Donate`, `Translate`, `Source Code` and `Contribute` were four msgids this
+port invented, in none of the twenty-six donated catalogues, rendering in
+English under a translated heading in all twenty-five non-English languages.
+The entry here said libadwaita "adds those rows with titles out of its own
+catalogue", which is what `lib/about_dialog.rb` said too, and it is false:
+`adw_about_dialog_new_from_appdata` sets nine properties and no link row
+(Adw-1.gir, libadwaita 1.9.3), and `git grep AddLink origin/main` is empty.
+Upstream's dialog has no such rows, so there was nothing for libadwaita to
+translate and nothing for the port to reproduce — there were four components I
+added and then described as parity.
 
-So a German user sees four English words in an otherwise German dialog, and
-will keep doing so until either a Weblate round picks the new msgids up or the
-port finds a way to reach libadwaita's domain.
-Upstream: `internal/components/application.go:76`.
-Port: `lib/about_dialog.rb#links`.
-Why it is hard: `FINDINGS.md`, "AdwAboutDialog has no donations-url".
+The four `add_link` calls are deleted, `po/sessions.pot` is back to upstream's
+33 msgids, and `test/drive_main_window.rb` now checks that none of the four
+titles appears in the rendered dialog.
+Upstream: `internal/components/application.go:84`.
+Port: `lib/about_dialog.rb`.
+
+### Twenty-nine of the 33 msgids have never been seen resolved
+
+`test/drive_translations.rb` is five checks: the window title, the action
+button's label, the menu button's tooltip, the minus button's tooltip and
+libadwaita's own shortcuts heading. Everything else is asserted in English or
+not asserted at all — including `Remaining Time`, which travels through a
+`Gtk::Builder` snippet and `REXML::Text.normalize` and is the most fragile
+translation path in the port; the shortcuts dialog's two section titles and
+seven item titles, which are already on screen in `de-shortcuts.png`; the alarm
+and portal strings; and the About dialog's summary, paragraphs, bullets and
+translator credits — the path that shipped a translation defect in round five
+whose only check is asserted in English.
+
+The German catalogue is complete at 33/33, so every one of these is assertable
+today and the only reason they are not asserted is that nobody wrote the
+checks.
+Port: `test/drive_translations.rb`, 5 checks over 4 msgids.
 
 ### Twenty-five languages have never been looked at
 

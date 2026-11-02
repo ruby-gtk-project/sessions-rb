@@ -293,10 +293,11 @@
             export RUBYLIB="$PWD/lib''${RUBYLIB:+:$RUBYLIB}"
 
             echo "sessions devshell — ruby $(ruby -e 'print RUBY_VERSION')"
-            echo "run the app:   xvfb-run -a ruby exe/sessions"
-            echo "drive the app: xvfb-run -a ruby test/drive_main_window.rb"
-            echo "drive German:  xvfb-run -a ruby test/drive_translations.rb"
-            echo "run the specs: rspec --options /dev/null --require spec_helper --format progress spec"
+            echo "run the app:     xvfb-run -a ruby exe/sessions"
+            echo "run the specs:   rake spec          (75 examples, no display needed)"
+            echo "drive every UI:  rake drive         (three drivers under Xvfb, shots in tmp/shots/)"
+            echo "  one at a time: rake drive:main_window | drive:translations | drive:high_contrast"
+            echo "specs + drivers: rake check"
           '';
         };
       });

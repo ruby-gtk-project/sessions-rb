@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# .gitlab-ci.yml's two spec jobs run `bin/rspec spec`, and bin/ had no rspec in
+# it, so both jobs failed on the line that was supposed to run the suite.
+#
+# Not a bundler-generated binstub: the Nix dev shell has no bundle at all — the
+# app's gems come from a bundlerEnv on GEM_PATH — and `require "bundler/setup"`
+# there aborts with a missing-Gemfile.lock error before rspec ever loads. So
+# the bundle is set up when there is one to set up, and skipped when there is
+# not.
+if File.exist?(File.expand_path("../Gemfile.lock", __dir__))
+  require "bundler/setup"
+end
+
+require "rspec/core"
+
+exit(RSpec::Core::Runner.run(ARGV, $stderr, $stdout))

@@ -52,16 +52,29 @@ Components implemented and believed complete. One upstream source file, one
 | `lib/ticker.rb` | no upstream file — the seam that replaces `testing/synctest` |
 | `lib/style.rb` | `assets/resources/style.css` (heredoc is byte-identical) |
 | `spec/state_machine_spec.rb`, `spec/support/manual_ticker.rb` | `pkg/state/machine_test.go` |
+| `spec/metainfo_spec.rb`, `spec/settings_spec.rb` | no upstream file — the port's own display-free classes |
+| `rakelib/spec.rake`, `bin/rspec`, `bin/rake` | `go test ./pkg/state/`, as a runner the repo owns |
+| `.github/workflows/ci.yaml` | `.github/workflows` (the test half; the Flatpak half is still owed) |
 | `rakelib/gettext.rake` | `po/index.go` (the `go:generate` lines) |
 | `data/*` (oga, 3 SVGs, desktop.in, metainfo.xml.in, gschema.xml) | `assets/` equivalents, byte-identical |
 | `po/*.po` (26 catalogues) | `po/*.po`, byte-identical |
 
-Six widget units were identified; all six have a Ruby counterpart. Three are at
-parity (primary menu, shortcuts dialog, about dialog); three carry open gaps
-(application object's unit is clean, main window, dial, about dialog rows — see
-below). Both widget drivers were last run green:
-`xvfb-run -a ruby test/drive_main_window.rb` → 34/34 with 7 screenshots, and
-`test/drive_translations.rb` → 5/5.
+Six widget units were identified; all six have a Ruby counterpart. Counting
+them as "three at parity, three with gaps" was a double claim in one sentence —
+the about dialog was in both halves of it. What a run of the three drivers says
+today, and nothing more: the primary menu, the shortcuts dialog and the
+application object carry no open row; the main window and the dial each do; the
+about dialog's four invented link rows are gone this round, which leaves it with
+one recorded extra (`comments`, from the metainfo, which upstream's dialog does
+not show) and no msgid of its own.
+
+All three drivers were last run green, by `rake drive`:
+
+| Driver | Checks | Screenshots |
+|---|---|---|
+| `test/drive_main_window.rb` | 173 | 11 |
+| `test/drive_translations.rb` | 5 | 2 |
+| `test/drive_high_contrast.rb` | 21 | 5 |
 
 ---
 
@@ -74,7 +87,7 @@ Upstream components with no Ruby counterpart at all.
 | `qt/main.go`, `qt/main.qml` — a whole second frontend over `pkg/state` | nothing |
 | `com.pojtinger.felicitas.Sessions.json` — the Flatpak manifest | nothing |
 | `.github/workflows/flatpak.yaml` | nothing |
-| `LICENSE` — the full AGPL v3 text | nothing; `sessions-rb.gemspec:66` packages `LICENSE.md`, which does not exist |
+| `LICENSE` — the full AGPL v3 text | `LICENSE.md`, md5-identical to upstream's (`4ae09d45eac4aa08d013b5f2e01c67f6`); this row is closed, and it was closed when the previous revision said the file did not exist |
 | `sessions.doap` | nothing |
 | `assets/meta/screenshot-initial.png`, `screenshot-running.png` | nothing; the port's metainfo cites upstream's `raw.githubusercontent.com` URLs |
 
@@ -98,7 +111,7 @@ The ten, owed as rewrites in place (delete none):
 3. `COMPONENT_PARITY.md:63-64` — "or upstream drops the frontend" lets the Qt row close with nothing built; `Owner:` is a status field.
 4. `COMPONENT_PARITY.md:103-105` — "nothing user-visible depends on this" plus "I am not planning to add a bundle"; this paragraph is what the About-dialog gap leans on.
 5. `COMPONENT_PARITY.md:43` — a literal `n/a` in the Upstream column; the counterpart is `go.mod` / `go.sum`.
-6. `TEST_PARITY.md:8` — **a false green.** The cell reads "45 examples, 0 failures". `rspec` is in neither the devshell nor the root `Gemfile`, there is no `Gemfile.lock`, and the documented command exits `exec: rspec: not found`. Zero examples have been executed.
+6. `TEST_PARITY.md:8` — the green was real but unreachable. 45 examples did run, under `rspec --options /dev/null --require spec_helper --format progress spec`; what failed was every documented spelling, because `.rspec` ended in `--format RspecJunitFormatter` and that gem is not in the dev shell's `GEM_PATH`. Restating it as "zero examples have been executed" was wrong in the other direction. Fixed this round: the two formatter lines are out of `.rspec`, `bin/rspec` exists, and `rake spec`, `rspec spec` and `bin/rspec spec` all run the suite — 75 examples, 0 failures.
 7. `TEST_PARITY.md:54,69,84` — neutral noun-phrase headings where the other ledgers write first person.
 8. `TEST_PARITY.md:73-74` — "so this is not a parity gap against upstream" leads a gap entry with a reason to stop reading.
 9. `PORTING.md:29` (the previous revision) — "or a decision not to ship one" pre-authorised skipping the Flatpak manifest in the first file a new agent reads.
@@ -109,20 +122,31 @@ The substantive parity gaps those ledgers are supposed to carry:
 | Gap | Reports |
 |---|---|
 | No Flatpak manifest — upstream is installable from a Flatpak remote, this port by Nix users only | component, unit 2 |
-| Dial: the filled wedge gets no high-contrast hairline (`dial.go:432-433`, `:421-422`); `lib/dial.rb#fill_pie` fills and returns | component, unit 4 |
-| Dial: the arc's start-cap hairline sweeps the wrong way — `lib/dial.rb:207-210` runs `-π/2`→`+π/2` against upstream's `sweep=false` (`dial.go:457-458`) | component, unit 4 |
-| About dialog: Donate / Translate / Source Code / Contribute row titles are four new English msgids in no `.po`, where libadwaita would have supplied translated ones | component unit 6, translation |
-| Qt/QML frontend absent | component, no unit |
-| `LICENSE` absent for a copyleft licence declared in three places | component, no unit |
-| DOAP record and both screenshots absent | component, no unit |
-| 42 state-machine examples cannot be executed — no runner installed | test |
-| No specs for `lib/metainfo.rb` or `lib/settings.rb`, both display-free | test |
-| Widget layer has a driver, not a spec suite | test |
+| Qt/QML frontend absent — `qt/main.go` (46 lines) and `qt/main.qml` (52 lines) | component, no unit |
+| DOAP record and both screenshots absent; the metainfo cites upstream's `raw.githubusercontent.com` images | component, no unit |
+| Widget layer has drivers, not a spec suite | test |
 | Catalogues are not wired into the gem build, so a released gem is English-only | translation |
 | The 360px window has never been seen in a long-string language (`ca`, `pt_BR`, `uk`) | translation |
+| 29 of the 33 msgids have never been observed resolving in a non-English locale | translation |
 
-The dial is **not** driven under high contrast, which is why its two gaps were
-read out of the sources rather than observed.
+Closed this round, each by a run rather than a reading:
+
+- The dial's two high-contrast defects are fixed. `lib/dial.rb#stroke_pie`
+  strokes the wedge it filled, radial edges included, and the full circle when
+  the arc closes into a ring (`dial.go:421-422`, `:432-433`);
+  `#stroke_start_cap` sweeps counter-clockwise through `arc_negative`
+  (`dial.go:457-458`).
+- The branch they live on is now executed. `test/drive_high_contrast.rb` turns
+  high contrast on through `ADW_DEBUG_HIGH_CONTRAST`, renders the dial in five
+  states and reads the pixels back: with the two fixes reverted it fails six
+  checks, which is what makes its green worth having.
+- The about dialog's four invented link rows and their four msgids are gone.
+  `po/sessions.pot` now holds the same 33 msgids as upstream's, with the same
+  four TRANSLATORS comments.
+- The suite runs. `rake spec`, `rspec spec` and `bin/rspec spec` all give 75
+  examples, 0 failures, and `rake drive` runs all three drivers.
+- `lib/metainfo.rb` and `lib/settings.rb` have specs, the second of them
+  covering both of upstream's two schema-construction paths.
 
 ---
 
@@ -141,10 +165,14 @@ difficulty; none of them closes a gap row.
   signals, and the `BindPropertyFull` transform that formats the label from
   `remaining-time` have no counterpart. The Ruby dial exposes plain accessors
   and injected callbacks, and the window formats the label itself.
-- **GSettings needs a compiled, installed schema**, so the single
-  `last-position` key is backed by a JSON file under `XDG_CONFIG_HOME` — the
-  same approach as the `gnome-contacts-rb` pilot — preserving key name, type
-  and default.
+- **GSettings needs a compiled schema**, which is a build step rather than a
+  blocker: `rake schema:compile` writes `data/gschemas.compiled` and
+  `lib/settings.rb` builds a `Gio::SettingsSchemaSource` over `data/` exactly
+  as upstream's `SchemaDir` path does. (An earlier revision of this file said
+  the key was "backed by a JSON file under `XDG_CONFIG_HOME`". It is not, and
+  was not: it is a real `Gio::Settings` against upstream's schema, which is
+  what `gsettings get com.pojtinger.felicitas.Sessions last-position`
+  answering proves. `spec/settings_spec.rb` covers both construction paths.)
 - **GResource is not used.** Upstream compiles `window.ui`,
   `shortcuts-dialog.ui` (both generated from blueprint), `metainfo.xml`,
   `style.css` and `alarm-clock-elapsed.oga` into a resource bundle. The port
@@ -166,9 +194,17 @@ difficulty; none of them closes a gap row.
 - **`adw_about_dialog_new_from_appdata` has no Ruby equivalent.** About-dialog
   fields are filled from the metainfo values by hand via `lib/metainfo.rb`;
   release notes are transcribed rather than read by libadwaita.
-- **No gettext wiring in the port's build.** 27 `po/` catalogues (30 messages)
-  are present and byte-identical, but translation parity is a separate unit,
-  not part of the component port.
+- **The catalogues are not wired into the *gem* build.** This was written as
+  "no gettext wiring in the port's build", with "translation parity is a
+  separate unit, not part of the component port" after it. Both halves were
+  false: `rakelib/gettext.rake` provides `gettext:pot`, `gettext:mo`,
+  `gettext:data` and `gettext:merge`, plus `schema:compile`, `build_data` and
+  `install_data`, and translation parity is part of this port, not a separate
+  unit. What is actually missing is narrower and is still owed: nothing in
+  `sessions-rb.gemspec` builds or packages the `.mo` files, so `gem install
+  sessions-rb` gets an English-only app while `rake install_data` gets a
+  translated one. The catalogues themselves are 26 `.po` files answering 33
+  msgids, all byte-identical to upstream's.
 - **Upstream bug the port had to decide on:** `app.shortcuts` gets an
   accelerator (`<Primary>question`) and a menu item, but no `SimpleAction`
   named `shortcuts` is ever installed and `shortcuts-dialog.ui` is never
@@ -184,15 +220,23 @@ difficulty; none of them closes a gap row.
 direnv allow          # or: nix develop
 rake build_data       # catalogues, merged data files, compiled schema
 ruby -Ilib exe/sessions
-xvfb-run -a ruby test/drive_main_window.rb     # widgets, headless, shots in tmp/shots/
-xvfb-run -a ruby test/drive_translations.rb    # the same window in German
+
+rake spec             # 75 examples, no display needed
+rake drive            # all three UI drivers under Xvfb, shots in tmp/shots/
+rake check            # both of the above
+
 rake install_data PREFIX=$HOME/.local
 ```
 
-`rspec spec/state_machine_spec.rb` is the intended command for the state
-machine and **does not currently run** — see gap 6 above. `require "gtk4"`
-calls `gtk_init`, which fails with no display on this stack, hence `xvfb-run`
-for anything touching a widget; `FINDINGS.md` has that and the `GEM_PATH` trap.
+Every command above was run in the dev shell at the time this was written.
+`rspec spec`, `rspec spec/state_machine_spec.rb` and `bin/rspec spec` all work
+too; `rake spec` is the one named here because it compiles the schema first,
+which `spec/settings_spec.rb` needs. The drivers can also be run one at a time
+(`rake drive:main_window`, `drive:translations`, `drive:high_contrast`) or
+directly — `nix develop --command xvfb-run -a ruby test/drive_main_window.rb`.
+`require "gtk4"` calls `gtk_init`, which fails with no display on this stack,
+hence `xvfb-run` for anything touching a widget; `FINDINGS.md` has that and the
+`GEM_PATH` trap.
 
 ---
 

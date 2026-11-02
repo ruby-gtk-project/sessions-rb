@@ -235,6 +235,21 @@ namespace :gettext do
     )
   end
 
+  # WARNING: this task rewrites all 26 catalogues, and running it is not
+  # routine.
+  #
+  # Every po/*.po is `cmp`-identical to upstream's, which is the cheapest proof
+  # available that no donated string has been touched. `msgmerge --update`
+  # rewrites each file's `#:` reference lines from upstream's
+  # `../assets/resources/*` and `../internal/components/*` to this port's
+  # `data/` and `lib/` paths, and that property is gone the first time it runs
+  # — in all 26 files at once, in a diff nobody can review for content.
+  #
+  # It would also have added four empty-msgstr entries to all 26, because the
+  # port's .pot carried four msgids of its own (the About dialog's link rows).
+  # Those are deleted and the .pot is back to upstream's 33 msgids, so a merge
+  # today would add no entry — but it would still churn the references.
+  # TRANSLATION_PARITY.md records the same warning.
   desc "Merge a regenerated .pot into every .po (the only thing that edits them)"
   task merge: :pot do
     # po/*.po are donated work. Nothing else in this repository writes to them.

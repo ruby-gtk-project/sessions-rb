@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# `bundle exec appraisal ... bin/rake --tasks` is .gitlab-ci.yml's smoke test in
+# both spec jobs, and bin/ had no rake in it either. Bundler is set up only when
+# there is a lockfile, for the same reason bin/rspec does it that way.
+if File.exist?(File.expand_path("../Gemfile.lock", __dir__))
+  require "bundler/setup"
+end
+
+require "rake"
+
+Rake.application.run

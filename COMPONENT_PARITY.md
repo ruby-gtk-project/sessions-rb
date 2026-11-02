@@ -21,7 +21,11 @@ them.
 | Behaviour | Upstream | Port | Observed by |
 |---|---|---|---|
 | Window, header bar, menu button, dial, time card, three buttons | `window.blp`, `internal/components/main_window.go` | `lib/main_window.rb` | `tmp/shots/01-initial.png` |
-| Dial arc, handle, track, dead zone, high-contrast borders | `internal/components/dial.go:296-492` | `lib/dial.rb:148-215` | `tmp/shots/01-initial.png`, `03-counting-down.png` |
+| Dial arc, handle, track, dead zone | `internal/components/dial.go:296-492` | `lib/dial.rb#draw` | `tmp/shots/01-initial.png`, `03-counting-down.png` |
+| High contrast: hairlines on the r±5 track circles, on the r±5 arcs and on the handle | `dial.go:360-373`, `:463-477`, `:490` | `lib/dial.rb#draw_track`, `#draw_arc_borders`, `#draw_handle` | `test/drive_high_contrast.rb`, `tmp/shots/hc-01-idle.png` … `hc-05-quarter-ring.png` — these three were carried as "read, not run" for five rounds |
+| High contrast: the filled wedge is stroked, radial edges included, and as a plain circle once the arc closes into a ring | `dial.go:432-433`, `:421-422` | `lib/dial.rb#stroke_pie` | `test/drive_high_contrast.rb` step 10 — the wedge outline's own pixels, found by rendering the dial twice and diffing |
+| High contrast: the start cap bulges counter-clockwise, left of twelve o'clock | `dial.go:457-458` (`SvgArcTo` with sweep-flag 0) | `lib/dial.rb#stroke_start_cap` (`arc_negative`) | `test/drive_high_contrast.rb` step 11 — every inked pixel is left of centre; with the fix reverted the driver fails six checks |
+| Switching high contrast or colour scheme repaints the dial immediately | `dial.go` reads the style manager each snapshot | `lib/dial.rb#build`'s `notify` handler, `#high_contrast?` | `test/drive_high_contrast.rb` step 0 |
 | Handle keeps the theme colour's own alpha; only the arc stroke is forced opaque | `dial.go:436-441`, `dial.go:489` | `lib/dial.rb#line_color`, `#draw_arc`, `#draw_handle` | source + `03-counting-down.png` |
 | `win.addTime` / `win.removeTime` move the dial and the label | `main_window.go:424-435` | `lib/main_window.rb` | drive steps 1-3 |
 | `win.toggleTimer` starts, stops and re-labels the button | `main_window.go:413`, `:340-352` | `lib/main_window.rb#toggle_timer` | drive steps 4-6 |
@@ -56,8 +60,11 @@ them.
 
 ### I have not ported the Qt/QML frontend
 
-Upstream ships a second frontend of this same app — `qt/main.go` (87 lines)
-and `qt/main.qml` (121 lines) — and the port has nothing corresponding to it.
+Upstream ships a second frontend of this same app — `qt/main.go` (46 lines)
+and `qt/main.qml` (52 lines) — and the port has nothing corresponding to it.
+(This entry said 87 and 121 lines for five rounds. `git show origin/main:qt/… |
+wc -l` says 46 and 52: I was overstating the size of the work I had not done,
+which makes it easier to leave undone.)
 A user who runs upstream's Qt build gets a working timer; a user of this port
 has no such option at all.
 
@@ -91,26 +98,46 @@ manifest has to build Ruby and eight ruby-gnome C extensions from pinned
 sources inside the manifest; none of those sha256s can be computed without
 running the build.
 
-### Four About-dialog link titles are English in twenty-five languages
+### Closed: the four About-dialog link rows are deleted
 
-Donate, Translate, Source Code and Contribute. Upstream gets these rows, with
-titles out of libadwaita's own catalogue, from
-`adw_about_dialog_new_from_appdata`; I add them with `add_link` and my own
-titles, so a German user sees four English words in an otherwise German
-dialog.
-Upstream: `internal/components/application.go:76`.
-Port: `lib/about_dialog.rb#links`.
-Why it is hard: `FINDINGS.md`, "AdwAboutDialog has no donations-url" — the
-properties do not exist and the appdata constructor needs a GResource.
+This row used to read "Four About-dialog link titles are English in
+twenty-five languages", and explained that upstream gets Donate and Translate
+rows with titles out of libadwaita's own catalogue from
+`adw_about_dialog_new_from_appdata`. That explanation was invented.
+`new_from_appdata` sets nine properties — application-icon, application-name,
+developer-name, version, website, support-url, issue-url, license-type and
+release-notes/release-notes-version (Adw-1.gir, libadwaita 1.9.3) — and adds no
+link row; `git grep AddLink origin/main` returns nothing. Upstream's About
+dialog has no Donate, Translate, Source Code or Contribute row at all, so there
+was never a translated row for the port to be falling short of: I had added four
+components and four msgids and then written the shortfall up as libadwaita's.
+
+The four `add_link` calls are gone, the four msgids are out of
+`po/sessions.pot` (33 again, upstream's set exactly), the four dead URL
+constants are out of `lib/resources.rb`, and
+`test/drive_main_window.rb` asserts that none of the four titles renders.
+
+One extra remains and is an extra, not parity: `comments`. The appdata
+constructor does not set it, so upstream's dialog shows no description at all
+where this one shows the metainfo's summary, two paragraphs and three bullets.
+It is kept because it costs no msgid — the keys are the ones xgettext took out
+of upstream's own metainfo, so all 26 catalogues answer them — and because
+`lib/metainfo.rb` exists to feed it. It is listed here so that nobody later
+reads the About dialog as byte-for-byte upstream's.
+Upstream: `internal/components/application.go:84`.
+Port: `lib/about_dialog.rb`.
 
 ### The port has no GResource bundle
 
 Upstream compiles the blueprint UI, the stylesheet, the metainfo and the alarm
 sound into one bundle and reads them back by resource path. The port reads them
-from `data/`. Nothing user-visible depends on this except the About dialog row
-above, and the house pattern builds widget trees in Ruby rather than from `.ui`
-files, so I am not planning to add a bundle — but it is the reason that row is
-open, and it is recorded here rather than being left implicit.
+from `data/`. The house pattern builds widget trees in Ruby rather than from
+`.ui` files, so the bundle has no reader here; what it does cost is the appdata
+constructor, which takes a *resource* path, so the About dialog's nine
+properties are set one at a time out of `lib/metainfo.rb` instead. That is a
+different mechanism reaching the same dialog, and it is the reason
+`lib/metainfo.rb` exists at all. Nobody has asked for the bundle and no row
+depends on it; it stays recorded rather than implicit.
 Upstream: `assets/resources/index.gresource.xml`.
 Port: `lib/resources.rb`.
 

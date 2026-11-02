@@ -658,34 +658,34 @@ GtkDriver.drive(app, shots: SHOTS) do |d, application|
           dialog.issue_url == Resources::APP_ISSUE_URL &&
           dialog.support_url == Resources::APP_SUPPORT_URL
       end
+      # Upstream's `adw_about_dialog_new_from_appdata` adds no link rows, and
+      # upstream calls `AddLink` nowhere, so a dialog with any of these four
+      # titles in it is the port inventing components — and inventing four
+      # msgids with them, which no donated catalogue can answer. Round five
+      # shipped exactly that behind a comment claiming libadwaita would have
+      # built two of them anyway.
       labels_under(dialog).then do |labels|
         ['Donate', 'Translate', 'Source Code', 'Contribute'].each do |link|
-          d.check("the #{link} link was added") { labels.count(link).positive? }
+          d.check("no #{link} row was invented") { labels.count(link).zero? }
         end
       end
       d.shot('07-about')
     end
   end
 
-  link_titles = ['Donate', 'Translate', 'Source Code', 'Contribute'].freeze
-  link_counts = nil
-  d.step('the links are counted before the about dialog is built again') do
-    labels_under(app.about_dialog.dialog).then do |labels|
-      link_counts = link_titles.to_h { |link| [link, labels.count(link)] }
-    end
+  about_label_count = nil
+  d.step('the about dialog is counted and then built a second time') do
+    about_label_count = labels_under(app.about_dialog.dialog).length
+    d.check('the dialog renders labels to count') { about_label_count.positive? }
     app.about_dialog.build
   end
 
-  d.step('the second build added no second copy of any link') do
-    labels_under(app.about_dialog.dialog).then do |labels|
-      link_titles.each do |link|
-        d.check("the #{link} link count did not change") do
-          labels.count(link) == link_counts[link]
-        end
-      end
-      d.check('#build answers the same dialog object every time') do
-        app.about_dialog.build.equal?(app.about_dialog.dialog)
-      end
+  d.step('the second build added nothing, because #build is memoized') do
+    d.check('the label count did not change') do
+      labels_under(app.about_dialog.dialog).length == about_label_count
+    end
+    d.check('#build answers the same dialog object every time') do
+      app.about_dialog.build.equal?(app.about_dialog.dialog)
     end
   end
 

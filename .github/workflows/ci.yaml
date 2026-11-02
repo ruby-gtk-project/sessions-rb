@@ -1,0 +1,82 @@
+# The port's CI, which it did not have: .github/workflows/ did not exist, so
+# nothing automated ran the 75 specs or any of the three UI drivers. Upstream
+# runs `go test ./pkg/state/` on every push from .github/workflows/test.yaml,
+# and that suite's port — spec/state_machine_spec.rb — was being run only when
+# a human typed an rspec invocation by hand.
+#
+# Everything runs inside the flake's dev shell, which is the only environment
+# that has GTK4, libadwaita, the introspection typelibs, Xvfb, msgfmt and
+# glib-compile-schemas together. `nix develop --command` is the same entry
+# point the dev shell banner and PORTING.md name.
+name: CI
+
+on:
+  push:
+    branches: [ruby]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spec:
+    name: RSpec suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: rake spec
+        run: nix develop --command rake spec
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: results/
+          if-no-files-found: ignore
+
+  drive:
+    name: UI drivers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      # The drivers render the real widget tree under Xvfb and assert what
+      # comes out, so the screenshots are the artifact worth keeping: they are
+      # how a reviewer sees what the port looks like without building it.
+      - name: rake drive
+        run: nix develop --command rake drive
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: tmp/shots/
+          if-no-files-found: error
+
+  catalogues:
+    name: Translation catalogues
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      # msgfmt -c --check-format over all 26 catalogues, which is the check
+      # that stops a translator's format-string typo from crashing the app in
+      # one language only.
+      - name: rake gettext:mo
+        run: nix develop --command rake gettext:mo
+      # The .pot is generated from POTFILES.in, so a string added to lib/
+      # without re-extracting it leaves the catalogues unable to answer that
+      # msgid. A dirty tree here means `rake gettext:pot` was not run.
+      # The two timestamps rxgettext writes into the header change on every
+      # run, so they are the one thing not compared.
+      - name: the committed .pot matches the sources
+        run: |
+          cp po/sessions.pot "$RUNNER_TEMP/committed.pot"
+          nix develop --command rake gettext:pot
+          diff \
+            <(grep -v '^"\(POT-Creation\|PO-Revision\)-Date' "$RUNNER_TEMP/committed.pot") \
+            <(grep -v '^"\(POT-Creation\|PO-Revision\)-Date' po/sessions.pot)

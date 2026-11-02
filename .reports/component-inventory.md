@@ -318,8 +318,10 @@ Two components upstream ships and the port does not. Both are open rows in
 `COMPONENT_PARITY.md`; neither is out of scope, because upstream set the scope by
 shipping them.
 
-1. **The Qt/QML frontend is not ported.** `qt/main.go` (87 lines) and
-   `qt/main.qml` (121 lines) are a Kirigami frontend of this same app:
+1. **The Qt/QML frontend is not ported.** `qt/main.go` (46 lines) and
+   `qt/main.qml` (52 lines) — counted with `wc -l` this round, against the 87
+   and 121 this file claimed for five rounds — are a Kirigami frontend of this
+   same app:
    `Kirigami.ApplicationWindow` 360×360, a `ColumnLayout` with
    `analogTimeLabel`, `minusButton`, `actionButton`, `plusButton`. A user who
    runs upstream's Qt build gets a working timer; a user of this port has no

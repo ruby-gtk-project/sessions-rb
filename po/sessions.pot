@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-02 05:30+0000\n"
-"PO-Revision-Date: 2026-11-02 05:30+0000\n"
+"POT-Creation-Date: 2026-11-02 18:00+0000\n"
+"PO-Revision-Date: 2026-11-02 18:00+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -18,27 +18,13 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: ../lib/about_dialog.rb:96
+#. TRANSLATORS: Replace "translator-credits" with your name/username, and optionally an email or URL.
+#: ../lib/about_dialog.rb:110
 msgid "translator-credits"
 msgstr ""
 
-#: ../lib/about_dialog.rb:107
-msgid "Donate"
-msgstr ""
-
-#: ../lib/about_dialog.rb:108
-msgid "Translate"
-msgstr ""
-
-#: ../lib/about_dialog.rb:109
-msgid "Source Code"
-msgstr ""
-
-#: ../lib/about_dialog.rb:110
-msgid "Contribute"
-msgstr ""
-
-#: ../lib/alarm.rb:56 ../lib/main_window.rb:343 ../lib/main_window.rb:347
+#. TRANSLATORS: Message shown in the background apps list next to the app while the app is running in the background and the session has finished.
+#: ../lib/alarm.rb:56 ../lib/main_window.rb:345 ../lib/main_window.rb:349
 msgid "Session Finished"
 msgstr ""
 
@@ -76,7 +62,7 @@ msgstr ""
 msgid "Remove 30 seconds"
 msgstr ""
 
-#: ../lib/main_window.rb:251 ../lib/main_window.rb:383
+#: ../lib/main_window.rb:251 ../lib/main_window.rb:385
 msgid "_Start Timer"
 msgstr ""
 
@@ -84,15 +70,17 @@ msgstr ""
 msgid "Add 30 seconds"
 msgstr ""
 
-#: ../lib/main_window.rb:325
+#. TRANSLATORS: Message shown in the background apps list next to the app while the app is running in the background.
+#: ../lib/main_window.rb:326
 msgid "Timer Running"
 msgstr ""
 
-#: ../lib/main_window.rb:392
+#: ../lib/main_window.rb:394
 msgid "_Stop"
 msgstr ""
 
-#: ../lib/main_window.rb:435
+#. TRANSLATORS: Reason given when requesting permission to run in the background from the system.
+#: ../lib/main_window.rb:438
 msgid "Running the Timer in the Background"
 msgstr ""
 

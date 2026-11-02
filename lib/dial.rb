@@ -199,14 +199,55 @@ class Dial
       end
     end
 
-    # The hairline that traces the arc's outline: the two edges, and the
-    # rounded cap where it starts at twelve o'clock.
+    # The hairlines that trace the arc's outline: the filled wedge itself, the
+    # two track-side edges, and the rounded cap where it starts at twelve
+    # o'clock.
     def draw_arc_borders(angle)
+      stroke_pie(angle)
       stroke_arc(@radius + BORDER_OFFSET, to: angle, width: BORDER_WIDTH, color: border_color)
       stroke_arc(@radius - BORDER_OFFSET, to: angle, width: BORDER_WIDTH, color: border_color)
+      stroke_start_cap
+    end
+
+    # Upstream strokes the same path it filled, so the translucent wedge has an
+    # edge against the track: `fullFillPath` — the plain circle, no radial
+    # edges — once the arc has closed into a full ring, and `arcPath` — the
+    # pie, both radial edges included — at every other angle.
+    # Upstream: `internal/components/dial.go:421-422` and `:432-433`.
+    # Port: `#stroke_pie`.
+    def stroke_pie(angle)
       paint(border_color, BORDER_WIDTH)
       @context.new_path
-      add_arc(radius: BORDER_OFFSET, from: TOP, to: TOP + Math::PI, cy: @cy - @radius)
+      if full_ring?(angle)
+        add_full_circle(@radius, nil)
+      else
+        @context.move_to(@cx, @cy)
+        add_arc(radius: @radius, from: TOP, to: angle)
+        @context.close_path
+      end
+      @context.stroke
+    end
+
+    # Upstream's `isFullCircle`: the arc's end has come back round to its
+    # start, which for `#arc_angle` is exactly a full hour of remaining time.
+    def full_ring?(angle) = angle >= TOP + TWO_PI
+
+    # The cap at twelve o'clock, drawn counter-clockwise so it bulges to the
+    # left of the arc's start rather than into the arc's own interior:
+    # upstream's `SvgArcTo` carries sweep-flag 0, and in the y-down space both
+    # Cairo and GSK use that is `arc_negative`.
+    # Upstream: `internal/components/dial.go:457-458`.
+    # Port: `#stroke_start_cap`.
+    def stroke_start_cap
+      paint(border_color, BORDER_WIDTH)
+      @context.new_path
+      add_arc(
+        radius:   BORDER_OFFSET,
+        from:     TOP,
+        to:       TOP - Math::PI,
+        cy:       @cy - @radius,
+        negative: true,
+      )
       @context.stroke
     end
 
@@ -277,15 +318,21 @@ class Dial
       end
     end
 
-    # The one place Cairo's five-argument arc is called.
-    def add_arc(radius:, from:, to:, cx: nil, cy: nil)
-      @context.arc(
-        cx || @cx,
-        cy || @cy,
-        radius,
-        from,
-        to,
-      )
+    # The one place Cairo's five-argument arc is called. `negative: true`
+    # picks `arc_negative`, which sweeps from `from` down to `to` instead of up
+    # to it — counter-clockwise on screen, where Cairo's own angles run
+    # clockwise because y grows downwards.
+    def add_arc(radius:, from:, to:, cx: nil, cy: nil, negative: false)
+      (negative ? :arc_negative : :arc).then do |sweep|
+        @context.public_send(
+          sweep,
+          cx || @cx,
+          cy || @cy,
+          radius,
+          from,
+          to,
+        )
+      end
     end
 
     # Colours
