@@ -143,7 +143,24 @@ module GtkDriver
 
     private
 
+      # Armed once, however many times the application activates. An app can
+      # re-activate itself — this port's `app.stopAlarmPlayback` does, to bring
+      # the window back after the notification is clicked — and without this
+      # guard a second activation starts a second chain of the same steps,
+      # which then interleave with the first and tread on each other's state.
+      # Armed once, however many times the application activates. An app can
+      # re-activate itself — this port's `app.stopAlarmPlayback` does, to bring
+      # the window back after the notification is clicked — and without this
+      # guard a second activation starts a second chain of the same steps,
+      # which then interleave with the first and tread on each other's state.
       def schedule(application)
+        unless @scheduled
+          @scheduled = true
+          arm_steps(application)
+        end
+      end
+
+      def arm_steps(application)
         index = 0
 
         GLib::Timeout.add(@interval) do

@@ -22,8 +22,21 @@ rescue LoadError => error
 end
 
 # External RSpec & related config
-require "kettle/test/rspec"
-# `kettle/test/rspec` installs harness helpers documented in spec/README.md.
+#
+# kettle-test is a development dependency, and the Nix gem bundle this port
+# runs under does not contain it — so the suite that covers the port itself
+# would be unrunnable in the dev shell if this require were unconditional.
+# Rescued the same way kettle-soup-cover is above, and for the same reason:
+# the harness helpers documented in spec/README.md are a convenience the
+# port's own specs do not use, and a missing convenience is not a reason for
+# zero examples to run.
+begin
+  require "kettle/test/rspec"
+rescue LoadError => error
+  unless error.message.include?("kettle")
+    raise error
+  end
+end
 
 # This library
 require "sessions/rb"

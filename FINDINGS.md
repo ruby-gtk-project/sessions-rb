@@ -175,6 +175,38 @@ step. `test/gtk_driver.rb` also shares one realised `Gsk::CairoRenderer` across
 a run and unrealises it before exit, because `GskRenderer` asserts it is
 unrealised on dispose and aborts the process if it is not.
 
+### `Gtk::Widget#activate` is a no-op on a `Gtk::Button`
+
+Round four's drive script clicked the window's three buttons with
+`button.activate`, on the strength of the C API's `gtk_widget_activate`.
+In these bindings it returns `nil` and nothing happens — the action the
+button names is never activated:
+
+```ruby
+window.plus_button.activate          # => nil
+window.dial.remaining_time           # => 300, unchanged
+window.plus_button.signal_emit('clicked')
+window.dial.remaining_time           # => 330
+```
+
+This matters more for testing than for the app, because `activate` fails
+*silently*: a check written against it passes for a button wired to nothing at
+all, which is the opposite of what a check is for. `test/drive_main_window.rb`
+emits `clicked`, which is the signal `GtkButton` turns into an action
+activation, so the `action-name` wiring really is under test.
+
+Nothing in `lib/` calls `Gtk::Widget#activate`, so no port code changed.
+
+### `Adwaita::ShortcutsDialog` renders every row twice
+
+Not a defect, but it reads like one from the outside and cost an hour. The
+dialog keeps a search-results list behind the list it shows, so a walk of its
+widget tree finds two `Gtk::Label`s per shortcut and two per section heading.
+A check that each row appears exactly once therefore fails on a dialog that is
+perfectly correct. `test/drive_main_window.rb` compares the count before and
+after a second `#build` instead, which is what the memoisation claim actually
+needs.
+
 ### `rexml` is a bundled gem, not a default one
 
 `require "rexml/document"` fails inside a bundlerEnv unless `rexml` is a

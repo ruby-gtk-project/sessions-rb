@@ -4,7 +4,7 @@
 |---|---|
 | Upstream | `origin/main` @ `ad77fb2` |
 | Port | `ruby` |
-| Verified by | `test/drive_main_window.rb` under `xvfb-run` — 34 checks, 7 screenshots in `tmp/shots/` |
+| Verified by | `test/drive_main_window.rb` under `xvfb-run` — 175 checks, 11 screenshots in `tmp/shots/`; `test/drive_translations.rb` — 5 checks, 2 screenshots; `rspec` — 45 examples |
 | Binding limits | `FINDINGS.md` |
 
 Every row is a behaviour, not a file. A row is closed when the behaviour is in
@@ -34,12 +34,18 @@ them.
 | Shortcuts dialog resolves six accelerators from action names | `shortcuts-dialog.blp` | `lib/shortcuts_dialog.rb` | `tmp/shots/06-shortcuts.png` shows `Ctrl` + `?`, `Ctrl` + `W` |
 | Shortcuts dialog title comes from libadwaita, not from us | `shortcuts-dialog.blp` (sets none) | `lib/shortcuts_dialog.rb` (sets none) | drive step 14 |
 | About dialog: summary, description, bullets, release notes, licence, URLs | `application.go:76-92` + `metainfo.xml.in` | `lib/about_dialog.rb`, `lib/metainfo.rb` | drive step 16, `07-about.png` |
-| About dialog translator credits | `application.go:88` | `lib/about_dialog.rb#translator_credits` | source; `TRANSLATION_PARITY.md` |
-| Last position in GSettings, with the uninstalled-schema fallback | `main.go:43-58` | `lib/settings.rb` | `gsettings get com.pojtinger.felicitas.Sessions last-position` |
-| Stylesheet loaded at application priority | `assets/resources/style.css` in the GResource | `lib/style.rb` | `FINDINGS.md`, "CssProvider#load" |
-| Background portal: request, status, hold, hide-on-close | `main_window.go:110-140`, `:225-250` | `lib/background_portal.rb` | drive run (portal absent in CI: the call is made and the refusal logged) |
-| Refused state transitions are reported | thirteen `slog` sites | `lib/main_window.rb#report` | source |
-| `StateMachine#to_s` / `#to_graph` | `pkg/state/machine.go` exports `String()` / `ToGraph()` | `lib/state_machine.rb` | `spec/state_machine_spec.rb` |
+| About dialog translator credits | `application.go:88` | `lib/about_dialog.rb#translator_credits` | drive step 41; `TRANSLATION_PARITY.md` |
+| Last position in GSettings, with the uninstalled-schema fallback | `main.go:43-58` | `lib/settings.rb` | drive steps 1, 2, 23-26 — the window's writes are read back through a second `Settings` object |
+| Stylesheet loaded at application priority | `assets/resources/style.css` in the GResource | `lib/style.rb` | drive step 4; the opaque time card in `tmp/shots/01-initial.png` |
+| Background portal: request, status, hold, hide-on-close | `main_window.go:110-140`, `:225-250` | `lib/background_portal.rb` | drive step 20 — no portal on this bus, so the request answers false and `hide-on-close` is never turned on |
+| Refused state transitions are reported | thirteen `slog` sites | `lib/main_window.rb#report` | drive steps 23, 25 — the dial's ceiling and floor, with the dimmed button in `tmp/shots/08-ceiling.png` and `09-floor.png` |
+| `StateMachine#to_s` / `#to_graph` | `pkg/state/machine.go` exports `String()` / `ToGraph()` | `lib/state_machine.rb` | `spec/state_machine_spec.rb`; drive step 25 |
+| Header-bar primary menu: two items on two application actions | `window.blp` `menu main_menu` | `lib/main_menu.rb` | drive steps 27-28, `tmp/shots/10-main-menu.png` |
+| Alarm notification and sound, and `app.stopAlarmPlayback` silencing both | `main_window.go:260-280` | `lib/alarm.rb` | drive steps 18-19 |
+| The countdown's one-second beat | `pkg/state` `time.Ticker` | `lib/ticker.rb` | drive step 21 |
+| The six accelerators, resolvable in both directions | `application.go`, `main_window.go` | `lib/application.rb`, `lib/main_window.rb` | drive step 30 |
+| The About dialog's description is one language, not every catalogue at once | `adw_about_dialog_new_from_appdata` | `lib/metainfo.rb#untranslated` | drive step 41 — the defect the first run of round five found |
+| The shortcuts dialog's no-results state | libadwaita's own | `lib/shortcuts_dialog.rb` | drive steps 36-39, `tmp/shots/11-shortcuts-no-results.png` |
 | `gtk4` / `adwaita` / `gettext` / `rexml` are runtime dependencies | n/a | `sessions-rb.gemspec:115-123` | `bundle check` |
 | Desktop entry, metainfo, icons, schema and catalogues are installed | Flatpak manifest build-commands | `rake install_data`, `flake.nix` `installPhase` | source |
 | The AGPL-3.0 text ships with the program, as the licence it declares | `LICENSE` | `LICENSE.md` | `Gem::Specification.load("sessions-rb.gemspec").files` lists it; `md5sum` matches upstream's `LICENSE` |

@@ -46,12 +46,20 @@ class Metainfo
   # The description, as the paragraphs and bullet items it is written in, in
   # document order. The About dialog's comments field is plain text, so the
   # bullets come back separately and the caller decides how to mark them.
+  #
+  # Only the untranslated nodes. `msgfmt --xml` merges every catalogue into the
+  # generated metainfo.xml as sibling elements carrying `xml:lang`, so the
+  # generated file holds twenty copies of each paragraph and bullet. Before
+  # this filter the About dialog's comments field was the description in every
+  # language at once, one after the other, which is what driving it showed —
+  # and the `_()` around each paragraph in lib/about_dialog.rb only ever
+  # resolves if what it is handed is the English msgid.
   def description_paragraphs
-    @component.elements.to_a('description/p').map { |node| text_of(node) }
+    untranslated('description/p').map { |node| text_of(node) }
   end
 
   def description_bullets
-    @component.elements.to_a('description/ul/li').map { |node| text_of(node) }
+    untranslated('description/ul/li').map { |node| text_of(node) }
   end
 
   # Every <release>, newest first, as it is written in the file.
@@ -72,6 +80,12 @@ class Metainfo
   end
 
   private
+
+    # The nodes at `xpath` that carry no `xml:lang`, which in a merged
+    # metainfo file is the source language's own copy.
+    def untranslated(xpath)
+      @component.elements.to_a(xpath).reject { |node| node.attributes['xml:lang'] }
+    end
 
     # The generated file is preferred when a build has produced it, because a
     # packaged copy may ship only that one; a checkout has only the template.

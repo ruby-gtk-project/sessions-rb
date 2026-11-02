@@ -248,6 +248,11 @@
             # Xvfb: gtk_init needs a display, so `require "gtk4"` raises
             # Gtk::InitError without one and nothing in the app can be driven.
             pkgs.xvfb-run
+            # rspec, for the display-free half of the suite under spec/. The
+            # gem bundle this flake builds has no rspec executable in it, so
+            # `bundle exec rspec` reports "command not found"; this is the
+            # binary the banner names.
+            pkgs.rubyPackages_3_4.rspec
           ] ++ gtkStack ++ gstStack;
 
           # Icons, GSettings schemas and the GTK portal all resolve through
@@ -281,7 +286,17 @@
               fi
             done
             unset BUNDLE_GEMFILE BUNDLE_FROZEN
+
+            # RUBYLIB is what makes `ruby exe/sessions` and `rspec` work from a
+            # checkout: lib/ is not on the load path otherwise, and the specs
+            # require the port by name rather than by relative path.
+            export RUBYLIB="$PWD/lib''${RUBYLIB:+:$RUBYLIB}"
+
             echo "sessions devshell — ruby $(ruby -e 'print RUBY_VERSION')"
+            echo "run the app:   xvfb-run -a ruby exe/sessions"
+            echo "drive the app: xvfb-run -a ruby test/drive_main_window.rb"
+            echo "drive German:  xvfb-run -a ruby test/drive_translations.rb"
+            echo "run the specs: rspec --options /dev/null --require spec_helper --format progress spec"
           '';
         };
       });
