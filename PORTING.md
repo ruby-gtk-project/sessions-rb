@@ -73,7 +73,7 @@ All three drivers were last run green, by `rake drive`:
 | Driver | Checks | Screenshots |
 |---|---|---|
 | `test/drive_main_window.rb` | 173 | 11 |
-| `test/drive_translations.rb` | 5 | 2 |
+| `test/drive_translations.rb` | 51 | 6 |
 | `test/drive_high_contrast.rb` | 21 | 5 |
 
 ---
@@ -127,7 +127,6 @@ The substantive parity gaps those ledgers are supposed to carry:
 | Widget layer has drivers, not a spec suite | test |
 | Catalogues are not wired into the gem build, so a released gem is English-only | translation |
 | The 360px window has never been seen in a long-string language (`ca`, `pt_BR`, `uk`) | translation |
-| 29 of the 33 msgids have never been observed resolving in a non-English locale | translation |
 
 Closed this round, each by a run rather than a reading:
 
@@ -147,6 +146,10 @@ Closed this round, each by a run rather than a reading:
   examples, 0 failures, and `rake drive` runs all three drivers.
 - `lib/metainfo.rb` and `lib/settings.rb` have specs, the second of them
   covering both of upstream's two schema-construction paths.
+- All 33 msgids are now observed resolving in German, where four were before:
+  `test/drive_translations.rb` is 51 checks over six screenshots, and it
+  asserts each string through the component that marks it, because
+  `bindtextdomain` binds per class ancestry.
 
 ---
 

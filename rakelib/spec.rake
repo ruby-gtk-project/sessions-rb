@@ -54,10 +54,16 @@ unless Rake::Task.task_defined?("test")
   task test: "spec"
 end
 
+# The German driver also asserts the eleven msgids that live in data/ rather
+# than in Ruby, so the merge that produces them has to have run.
+DRIVER_PREREQUISITES = {
+  translations: ["schema:compile", "gettext:data"],
+}.freeze
+
 namespace :drive do
   DRIVERS.each do |name, script|
     desc "Drive #{script} headlessly under Xvfb"
-    task name => "schema:compile" do
+    task name => DRIVER_PREREQUISITES.fetch(name, ["schema:compile"]) do
       drive(script)
     end
   end

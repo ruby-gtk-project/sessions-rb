@@ -130,23 +130,36 @@ titles appears in the rendered dialog.
 Upstream: `internal/components/application.go:84`.
 Port: `lib/about_dialog.rb`.
 
-### Twenty-nine of the 33 msgids have never been seen resolved
+### Closed: all 33 msgids are now seen resolved in German
 
-`test/drive_translations.rb` is five checks: the window title, the action
-button's label, the menu button's tooltip, the minus button's tooltip and
-libadwaita's own shortcuts heading. Everything else is asserted in English or
-not asserted at all — including `Remaining Time`, which travels through a
-`Gtk::Builder` snippet and `REXML::Text.normalize` and is the most fragile
-translation path in the port; the shortcuts dialog's two section titles and
-seven item titles, which are already on screen in `de-shortcuts.png`; the alarm
-and portal strings; and the About dialog's summary, paragraphs, bullets and
-translator credits — the path that shipped a translation defect in round five
-whose only check is asserted in English.
+`test/drive_translations.rb` was five checks over four msgids — the window
+title, the action button, two tooltips and libadwaita's own shortcuts heading.
+The other twenty-nine were carried as translated because the catalogue has
+them, which is the reasoning that let the About dialog render its description
+in twenty languages at once for a whole round.
 
-The German catalogue is complete at 33/33, so every one of these is assertable
-today and the only reason they are not asserted is that nobody wrote the
-checks.
-Port: `test/drive_translations.rb`, 5 checks over 4 msgids.
+It is 51 checks over six screenshots now, and the three routes that can fail
+while the catalogue is perfect are asserted differently:
+
+* through the component's own `#_`, not a top-level `_()`, for anything with no
+  getter — the two alarm strings, the two portal strings and `Remaining Time`.
+  `bindtextdomain` binds to the including class's ancestry, so a class that
+  forgets `include Translations` ships English while everything else is
+  translated, and only a lookup through that class can see it.
+* off the rendered widget, for everything GTK or libadwaita puts on screen: the
+  two menu items, the shortcuts dialog's two sections and seven rows (plus a
+  check that no English row is left beside them), `_Stoppen` after the toggle,
+  and the About dialog's `comments` and `translator-credits` — including that
+  the English description is *not* in `comments` as well.
+* off the merged `data/` files, for the eleven msgids no Ruby ever sees;
+  `rake drive:translations` runs `gettext:data` first so the step asserts the
+  merge instead of skipping it.
+
+The schema's `<summary>` and `<description>` are asserted through
+`Gio::SettingsSchemaKey`, which is the only way to see
+`GLib::GetText.bindtextdomain` work at all — it is a different binding from the
+gettext gem's and nothing had ever exercised it.
+Port: `test/drive_translations.rb`, 51 checks over all 33 msgids.
 
 ### Twenty-five languages have never been looked at
 

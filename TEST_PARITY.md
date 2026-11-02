@@ -6,7 +6,7 @@
 | Port | `ruby` |
 | Upstream suite | `pkg/state/machine_test.go`, 991 lines, 10 functions, 42 generated cases |
 | Port suite | `spec/`, 75 examples, 0 failures (`rake spec`) |
-| Drivers | `test/drive_main_window.rb`, 173 checks, 11 screenshots; `test/drive_translations.rb`, 5 checks, 2 screenshots; `test/drive_high_contrast.rb`, 21 checks, 5 screenshots (`rake drive`) |
+| Drivers | `test/drive_main_window.rb`, 173 checks, 11 screenshots; `test/drive_translations.rb`, 51 checks, 6 screenshots; `test/drive_high_contrast.rb`, 21 checks, 5 screenshots (`rake drive`) |
 | CI | `.github/workflows/ci.yaml` — three jobs: the suite, the three drivers, the catalogues |
 
 The previous revision of this table said "45 examples, 0 failures" and the
@@ -90,7 +90,7 @@ matchers or its `--only-failures`.
 This is a gap against what this port needs rather than against upstream, whose
 whole suite is `pkg/state` — and recording that does not make it smaller,
 because the port reimplements by hand a widget tree upstream declares in
-blueprint. The drivers' existence is not coverage: it is 194 checks a human has
+blueprint. The drivers' existence is not coverage: it is 245 checks a human has
 to read the output of.
 Upstream: none.
 Port: `test/drive_main_window.rb`, `test/drive_high_contrast.rb`.
