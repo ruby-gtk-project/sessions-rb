@@ -42,6 +42,7 @@ them.
 | `StateMachine#to_s` / `#to_graph` | `pkg/state/machine.go` exports `String()` / `ToGraph()` | `lib/state_machine.rb` | `spec/state_machine_spec.rb` |
 | `gtk4` / `adwaita` / `gettext` / `rexml` are runtime dependencies | n/a | `sessions-rb.gemspec:115-123` | `bundle check` |
 | Desktop entry, metainfo, icons, schema and catalogues are installed | Flatpak manifest build-commands | `rake install_data`, `flake.nix` `installPhase` | source |
+| The AGPL-3.0 text ships with the program, as the licence it declares | `LICENSE` | `LICENSE.md` | `Gem::Specification.load("sessions-rb.gemspec").files` lists it; `md5sum` matches upstream's `LICENSE` |
 
 ---
 
@@ -106,3 +107,21 @@ files, so I am not planning to add a bundle — but it is the reason that row is
 open, and it is recorded here rather than being left implicit.
 Upstream: `assets/resources/index.gresource.xml`.
 Port: `lib/resources.rb`.
+
+### The port ships no DOAP project description
+
+Upstream ships `sessions.doap`, the RDF project description GNOME's
+infrastructure reads for the app's name, homepage, bug database, language,
+platforms and maintainer. The port has no such file, so this fork is invisible
+to anything that discovers projects that way.
+
+It is not written because every field in it is an assertion about who
+maintains the software and where its bugs are filed. Upstream's copy names
+Felicitas Pojtinger as maintainer and `github.com/pojntfx/sessions/issues` as
+the bug database; copying it across would put that name behind a fork they have
+not seen, and inventing a replacement maintainer is not a porting decision.
+Upstream: `sessions.doap`.
+Port: nothing.
+Owner: **unassigned**. Whoever maintains this fork fills in their own `foaf:Person`
+and bug database; `<programming-language>` becomes `Ruby`, and the two
+`<platform>` elements stay `GTK 4` and `Libadwaita`.
