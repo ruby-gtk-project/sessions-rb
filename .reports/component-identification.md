@@ -2,18 +2,24 @@
 
 | | |
 |---|---|
-| Upstream | `origin/main` @ `ad77fb2` (Go + puregotk, blueprint UI in a GResource) |
-| Port | `ruby` @ `088c46d` |
-| Symbol table | `.claude/skills/component-identification/scripts/symbols.tsv` |
-| Scans | `component-scan.sh` over both trees, then read file by file |
+| Upstream | `origin/main` @ `ad77fb2` (Go + puregotk, blueprint UI compiled into a GResource) |
+| Port | `ruby` @ `14fcee4` |
+| Symbol table | `.claude/skills/component-identification/scripts/symbols.tsv` (built in the port's `nix develop` shell) |
+| Scans | `component-scan.sh` over a `git archive` of `origin/main` and over the working tree, then every file read |
+| Round | six — re-run from scratch for this audit, not inherited |
 
-Step 1 of the skill first: upstream's declarative UI is
-`assets/resources/window.blp` and `assets/resources/shortcuts-dialog.blp`.
-`window.blp` has one `template $SessionsMainWindow` root plus a `menu
-main_menu` block; `shortcuts-dialog.blp` has a top-level **named object**
-(`Adw.ShortcutsDialog shortcuts_dialog`), not a template — matching `template`
-alone finds half the app. The port has no `.blp`/`.ui` at all, as the house
-style requires, so its side is scan-plus-reading throughout.
+Step 1 of the skill first. Upstream's declarative UI is two blueprint files:
+
+```
+assets/resources/window.blp              1 template root + 1 menu block
+assets/resources/shortcuts-dialog.blp    1 top-level NAMED object, not a template
+```
+
+`shortcuts-dialog.blp` declares `Adw.ShortcutsDialog shortcuts_dialog { … }` at
+column zero — a named root, not `template $Foo:`. Matching `template` alone
+finds one of the two declarative units, i.e. half the declarative UI. The port
+has no `.blp`/`.ui` at all, as the house style requires, so its side is
+scan-plus-reading throughout.
 
 ---
 
@@ -23,175 +29,245 @@ Six units, in the order a user meets them.
 
 | # | Unit | Upstream files | Port file(s) |
 |---|---|---|---|
-| 1 | application object | `main.go`, `internal/components/application.go` | `lib/application.rb`, `lib/translations.rb`, `lib/resources.rb`, `lib/settings.rb`, `exe/sessions` |
+| 1 | application object | `main.go`, `internal/components/application.go`, `internal/components/constants.go` | `lib/application.rb`, `lib/translations.rb`, `lib/resources.rb`, `lib/settings.rb`, `lib/style.rb`, `exe/sessions` |
 | 2 | main window | `internal/components/main_window.go` + `assets/resources/window.blp` | `lib/main_window.rb`, `lib/alarm.rb`, `lib/background_portal.rb` |
 | 3 | primary menu | the `menu main_menu` block of `window.blp` | `lib/main_menu.rb` |
 | 4 | dial | `internal/components/dial.go` | `lib/dial.rb` |
 | 5 | shortcuts dialog | `assets/resources/shortcuts-dialog.blp` | `lib/shortcuts_dialog.rb` |
 | 6 | about dialog | `application.go:76-92` + `assets/resources/metainfo.xml.in` | `lib/about_dialog.rb`, `lib/metainfo.rb` |
 
-Non-widget units that still carry behaviour: `pkg/state/machine.go` +
-`constants.go` → `lib/state_machine.rb` + `lib/ticker.rb`;
-`assets/resources/style.css` → `lib/style.rb`.
+Non-widget units that still carry behaviour:
 
-Upstream files that belong to **no** unit on the port side, because the port
-has nothing opposite them: `qt/main.go`, `qt/main.qml`,
-`com.pojtinger.felicitas.Sessions.json`, `.github/workflows/flatpak.yaml`,
-`sessions.doap`, `LICENSE`, `assets/meta/screenshot-*.png`. They are carried
-into `component-parity.md` as gaps, not dropped here.
+| Upstream | Port |
+|---|---|
+| `pkg/state/machine.go`, `pkg/state/constants.go` | `lib/state_machine.rb`, `lib/ticker.rb` |
+| `assets/resources/style.css` | `lib/style.rb` |
+| `assets/resources/index.gschema.xml` | `data/com.pojtinger.felicitas.Sessions.gschema.xml` + `lib/settings.rb` |
+
+**A seventh unit exists upstream and has no port counterpart at all:** the
+Qt/Kirigami frontend, `qt/main.go` (46 lines, `miqt/qt6` + `qml`) and
+`qt/main.qml` (52 lines, `Kirigami.ApplicationWindow` → `ColumnLayout` → one
+`Controls.Label` + three `Controls.Button`). The scan produces **no rows** for
+either file — the regexes know GTK and libadwaita, not QtQuick — so it is
+invisible to the TSV and had to be found by reading `git ls-tree`. It drives the
+same `pkg/state` machine the port already has. It is counted as a gap in
+`component-parity.md`, not as a unit with parity.
 
 ---
 
-## 1 — application object
+## Scan totals
 
-| Widget | × | CSS | Signals | Actions | Notes |
-|---|---:|---|---|---|---|
-| `Adw.Application` subclass (`SessionsApplication`) | 1 | — | `activate` (vfunc override) | installs `app.openAbout`, `app.quit` | upstream registers the GType by hand in `init()` |
-| `Gio.SimpleAction` | 2 | — | `activate` ×2 | `openAbout`, `quit` | |
+A map of how much app there is, not an inventory to act on. Upstream's raw scan
+is 4253 rows, almost all of it noise: the 26 `.po` files carry `#:` source
+references that the CSS and signal regexes match. Scoped to the six source
+files that actually build UI:
 
-Accelerators installed here: `app.shortcuts` → `<Primary>question`,
-`app.quit` → `<Primary>q`.
+| | widget | css | signal | action | controller | type |
+|---|---:|---:|---:|---:|---:|---:|
+| upstream (6 files, scoped) | 35 | 10 | 9 | 16 | 2 | 12 |
+| port (`lib/`, 7 files with rows) | 14 | 8 | 7 | 13 | 2 | 9 |
 
-**`app.shortcuts` has an accelerator and a menu item upstream and no install
-site anywhere in the Go.** `git grep -n shortcut origin/main -- '*.go'` returns
-two lines, both of them the accelerator and the resource path; no
-`gio.NewSimpleAction("shortcuts", …)` exists. The dialog
-`shortcuts-dialog.blp` describes is unreachable in upstream's own build.
+Per file:
 
-Port side: `lib/application.rb` is a `Gtk::Application` (not Adwaita —
-`Adwaita::Application` is unusable in these bindings) with three
-`Gio::SimpleAction`s: `shortcuts`, `openAbout`, `quit`. The third action is an
-addition, explained in the file's header comment.
+```
+upstream                                      port
+assets/resources/shortcuts-dialog.blp   5     lib/about_dialog.rb       2
+assets/resources/window.blp            19     lib/alarm.rb              1
+internal/components/application.go     12     lib/application.rb        5
+internal/components/dial.go            16     lib/dial.rb               9
+internal/components/main_window.go     28     lib/main_window.rb       29
+main.go                                 4     lib/shortcuts_dialog.rb   5
+                                              lib/style.rb              2
+```
 
-Conditional: `activated_window` runs the whole install exactly once, which is
-upstream's early-return-and-present on a second activation.
+The widget-row difference is not a parity gap and must not be read as one.
+Upstream's 35 widget rows include its `gobject.TypeRegisterStaticSimple`
+plumbing — `Adw.ApplicationGLibType()`, `Gtk.WidgetGLibType()`,
+`gtk.NewMediaFileForResource`, `gio.NewSettingsFull`, `gtk.WidgetClass`,
+`gtk.Snapshot` — none of which the Ruby bindings need. The reverse under-report
+is real and listed below.
 
-## 2 — main window
+---
 
-Union of `window.blp` and `main_window.go`, with the template root counted once
-(`class SessionsMainWindow` in Go and `template $SessionsMainWindow` in the
-blueprint are one window).
+## What the scan under-reports, resolved by reading
+
+Every one of these was followed into the source; none is left as "the scan
+says".
+
+| Shape | Where | Resolution |
+|---|---|---|
+| **Repeaters** | `lib/shortcuts_dialog.rb#sections` | 1 scan row → **2** `Adw::ShortcutsSection` and **7** `Adw::ShortcutsItem` on screen, driven by the literal table in `#sections`. Upstream's blueprint spells all nine out. |
+| **Repeaters** | `lib/main_menu.rb#items` | 1 row → 2 `Gio::Menu` items. |
+| **Repeaters** | `lib/about_dialog.rb#links` | 1 `add_link` call site → **4** link rows. |
+| **Shared factory** | `lib/shortcuts_dialog.rb#item` | one `Adwaita::ShortcutsItem.new` → 7 widgets. Count the call sites in `#sections`, not the constructor. |
+| **Widget built from a Builder snippet** | `lib/main_window.rb:58-68`, `#timer_row` | `Gtk::ListBoxRow` + its `<accessibility><property name="label">` come from a one-object `TIMER_ROW_UI` heredoc, so no `Gtk::ListBoxRow.new` exists to match. The scan sees nothing; the widget and its accessible label are both real. |
+| **CSS class behind a constant** | `lib/main_window.rb:345,355` | `Style::ALARMING_CLASS`, not the literal `"dial__display--alarming"`. The scan's `css` stream misses it on the port side; `lib/style.rb:62` defines it. |
+| **Actions built from a hash** | `lib/main_window.rb:70-75`, `lib/application.rb:34-37` | Accelerator names live as hash keys in `ACCELERATORS`; the action names are literal in the `SimpleAction.new` calls, so these happen to survive, but the `action` stream was still re-derived by opening every `add_action` / `SimpleAction.new` site. 13 port rows vs 16 upstream — the difference is upstream repeating `app.shortcuts`, `win.addTime` etc. across both `SetAccelsForAction` and the `.blp`. |
+| **Dial drawing** | `lib/dial.rb` | Nine rows for a widget whose whole identity is ~200 lines of Cairo. The shapes are not components the scan can see; they are compared shape-by-shape in `component-parity.md` Unit 4. |
+| **Controllers** | both sides | 2 and 2: `Gtk::GestureDrag`, `Gtk::GestureClick`. Compared on the signal axis of the dial, never in the widget count. |
+| **Menu model** | `window.blp:124-137` | All-lowercase blueprint keywords, so zero scan rows. Counted by hand: 1 `section`, 2 `item`, no `custom:` slots. |
+| **Upstream's own GObject subclasses** | `SessionsApplication`, `SessionsMainWindow`, `SessionsDial` | None is a GTK type, so none is a row. All three are real component boundaries and all three have a port file. |
+
+---
+
+## Dead code found upstream, and what it means for the port
+
+`app.shortcuts` **is never installed upstream.** `git grep -n shortcut
+origin/main` returns the accelerator
+(`application.go:111: SetAccelsForAction("app.shortcuts", …)`), the menu item
+(`window.blp:130`), the resource path constant
+(`index.go:36: ResourceShortcutsDialogUIPath`), the gresource entry, and the
+nine strings in `shortcuts-dialog.blp`. **No `gio.NewSimpleAction("shortcuts",
+…)` exists anywhere in the Go tree**, and nothing loads
+`ResourceShortcutsDialogUIPath`. So upstream ships a shortcuts dialog that
+cannot be opened: the menu item is insensitive and `<Primary>?` does nothing.
+
+Consequence for the inventory: unit 5 is a component that exists in upstream's
+*resources* and not in upstream's *running app*. The port installs the action
+(`lib/application.rb:66,81`) and presents the dialog, which is an **extra** —
+correctly labelled as one in `component-parity.md`, and the only reason unit 5
+is reachable at all.
+
+---
+
+## Inventory
+
+### 1 — `main.go` + `internal/components/application.go` → the application object
+
+| Item | × | CSS | Signals / Actions | Notes |
+|---|---:|---|---|---|
+| `Adw.Application` subclass (`SessionsApplication`) | 1 | — | `activate` (vfunc override) | returns early and re-presents on a second activation |
+| `Gio.SimpleAction` `openAbout` | 1 | — | `activate` → `aboutDialog.Present(window)` | |
+| `Gio.SimpleAction` `quit` | 1 | — | `activate` → `Application.Quit()` | |
+| `Adw.AboutDialog` | 1 | — | — | built by `NewAboutDialogFromAppdata`; see unit 6 |
+| accel `app.shortcuts` → `<Primary>question` | 1 | — | — | points at an action upstream never installs |
+| accel `app.quit` → `<Primary>q` | 1 | — | — | |
+| `Gio.Settings` | 1 | — | — | two construction paths, keyed on `SchemaDir == ""` |
+| gettext init | 1 | — | — | domain `sessions`, `LocaleDir` a link-time variable |
+| `Gio.Resource` registration | 1 | — | — | the whole GResource bundle |
+
+Repeaters: none. Conditional: the settings construction path.
+
+### 2 — `assets/resources/window.blp` + `internal/components/main_window.go` → the main window
 
 | Widget | × | CSS | Signals / Actions | Notes |
 |---|---:|---|---|---|
-| `Adw.ApplicationWindow` | 1 | — | — | 360×380, title `_("Sessions")` |
-| `Adw.ToolbarView` | 1 | — | — | `toolbar_view` |
+| `Adw.ApplicationWindow` | 1 | — | — | 360×380, title `Sessions` |
+| `Adw.ToolbarView` | 1 | — | — | `[top]` header bar, `content` box |
 | `Adw.HeaderBar` | 1 | — | — | |
-| `Adw.WindowTitle` | 1 | — | — | title `_("Sessions")` |
-| `Gtk.MenuButton` | 1 | — | `menu-model: main_menu` | `open-menu-symbolic`, `primary: true`, tooltip `_("Main Menu")` |
-| `Gtk.Box` | 4 | — | — | outer vertical, dial pane, `dial_area` (260×260), button row |
-| `Gtk.Overlay` | 1 | — | — | dial underneath, time card on top |
-| `Gtk.ListBox` | 1 | `boxed-list`, `boxed-list--opaque` | `selection-mode: none` | |
-| `Gtk.ListBoxRow` | 1 | — | `activatable: false` | carries `accessibility { label: _("Remaining Time") }` |
-| `Gtk.Label` | 1 | `title-1`, `dial__display`, **`dial__display--alarming` (dynamic)** | — | `analog_time_label`; bound to the dial's `remaining-time` through a transform function |
-| `Gtk.Button` | 3 | minus/plus `circular`; action button `suggested-action`, `pill`, **`destructive-action` (dynamic)** | `win.removeTime`, `win.toggleTimer`, `win.addTime` | tooltips `_("Remove 30 seconds")` / `_("Add 30 seconds")`; action button label flips `_("_Start Timer")` ↔ `_("_Stop")` and its icon `media-playback-start-symbolic` ↔ `media-playback-stop-symbolic` |
+| `Adw.WindowTitle` | 1 | — | — | `Sessions` |
+| `Gtk.MenuButton` | 1 | — | `menu-model: main_menu` | `open-menu-symbolic`, `primary: true`, tooltip `Main Menu` |
+| `Gtk.Box` | 4 | — | — | content (vertical), dial pane (vertical, spacing 12, valign centre, vexpand, margins 12), `dial_area` (260×260), button pane (horizontal, spacing 12, halign centre, margins 12) |
+| `Gtk.Overlay` | 1 | — | — | `dial_area` is the child, the list box the overlay |
+| `Gtk.ListBox` | 1 | `boxed-list`, `boxed-list--opaque` | `selection-mode: none` | halign/valign centre |
+| `Gtk.ListBoxRow` | 1 | — | `activatable: false` | accessible label `Remaining Time` |
+| `Gtk.Label` | 1 | `title-1`, `dial__display`, `dial__display--alarming` (dynamic, added while alarming) | bound to the dial's `remaining-time` through a transform function | `05:00`, margins 12; `Announce(…, HIGH)` on alarm |
+| `Gtk.Button` minus | 1 | `circular` | `win.removeTime` | `list-remove-symbolic`, tooltip `Remove 30 seconds`, valign centre |
+| `Gtk.Button` action | 1 | `pill`, `suggested-action` ⇄ `destructive-action` (dynamic) | `win.toggleTimer` | icon + label `_Start Timer` / `_Stop`, `use-underline` |
+| `Gtk.Button` plus | 1 | `circular` | `win.addTime` | `list-add-symbolic`, tooltip `Add 30 seconds`, valign centre |
 | `Gio.SimpleAction` | 5 | — | `activate` ×5 | `toggleTimer`, `addTime`, `removeTime`, `closeWindow` on the window; `stopAlarmPlayback` on the **application** |
-| `Gio.Notification` | 1 | — | default action `app.stopAlarmPlayback` | `_("Session Finished")` / `_("Time to take a break")`, high priority |
-| `Gtk.MediaFile` | 1 | — | — | `alarm-clock-elapsed.oga` |
+| `Gtk.MediaFile` | 1 | — | — | `NewMediaFileForResource(alarm-clock-elapsed.oga)` |
+| `Gio.Notification` | 1 | — | default action `app.stopAlarmPlayback` | `Session Finished` / `Time to take a break`, priority HIGH, id `session-finished` |
+| accels | 4 | — | — | `win.closeWindow`→`<Primary>w`, `win.toggleTimer`→`<Primary>space`, `win.addTime`→`<Primary>plus` **and** `<Primary>equal`, `win.removeTime`→`<Primary>minus` |
+| background portal | 1 | — | — | `RequestBackground(reason)` then `SetStatus(message)`; `app.Hold()` + `SetHideOnClose(true)` only once granted |
 
-Accelerators installed here: `win.closeWindow` → `<Primary>w`,
-`win.toggleTimer` → `<Primary>space`, `win.addTime` → `<Primary>plus` **and**
-`<Primary>equal`, `win.removeTime` → `<Primary>minus`.
+Repeaters: none. Conditional: the portal dance runs only when `!held`;
+`dial__display--alarming` only while alarming; the action button's appearance
+switches on the permitted-trigger set.
+Error states: a portal error and a portal denial are both logged and the app
+stays in the foreground. Thirteen `log.Error` sites cover every refused
+transition.
 
-Dynamic CSS, listed with every value it can take rather than as "dynamic":
-`destructive-action` and `suggested-action` are added and removed on the action
-button by `OnPermittedTriggersChange`; `dial__display--alarming` is added to
-the label on `OnStartAlarm` and removed on `OnStopAlarm`.
+### 3 — the `menu main_menu` block → the primary menu
 
-Repeaters: none. Conditional: the background-portal request only when not
-already held; the whole alarm block only in the alarming state.
-
-Non-widget behaviour that belongs to this unit and that no scan row shows:
-seven state-machine hooks, the `org.freedesktop.portal.Background`
-`RequestBackground` + `SetStatus` pair, `app.hold`/`app.release`,
-`set_hide_on_close`, `Gtk::Label#announce(…, :high)`, and the thirteen
-`log.Error` sites on refused transitions.
-
-## 3 — primary menu
-
-A blueprint `menu` block is all lowercase keywords, so it produces no scan
-rows. Counted by hand: one `section`, two `item`s, no `custom:` slots.
-
-| Item | Action |
-|---|---|
-| `_("_Keyboard Shortcuts")` | `app.shortcuts` |
-| `_("_About Sessions")` | `app.openAbout` |
-
-## 4 — dial
-
-| Widget / controller | × | CSS | Signals | Notes |
-|---|---:|---|---|---|
-| `Gtk.Widget` subclass (`SessionsDial`) | 1 | — | emits `drag-begin`, `drag-end`; listens `notify` on `Adw.StyleManager` | overrides `snapshot`; properties `remaining-time` (int 0…3600, default 300) and `counting-down` (bool, default false) |
-| `Gtk.GestureDrag` | 1 | — | `drag-begin`, `drag-update`, `drag-end` | |
-| `Gtk.GestureClick` | 1 | — | `pressed` | |
-
-`Gsk.PathBuilder` ×10 and `Gsk.Stroke` ×3 are `type` rows, not widgets: they
-are the drawing plumbing, compared as plumbing in `component-parity.md`.
-
-Geometry and colour, read out of `snapshot` (dial.go:296-492): radius
-`min(cx,cy) − 15`; 10px track; 8px handle; 15px dead zone at the centre; 120
-intervals per ring; track is a sampled grey (`#343437` dark / `#D8D8D8` light)
-or, when insensitive, `destructive_color` composited over `window_bg_color` at
-0.5·alpha; arc stroke is `error_color` while counting down and
-`accent_bg_color` otherwise; fill is `error_color` at α 0.3 or a flat
-`(0.6,0.6,0.6,0.2)`; handle is filled with the looked-up colour **without**
-forcing alpha. Under high contrast every shape gets a 1px
-`window_fg_color` α 0.5 hairline: circles at r±5, the pie path itself, the
-full-ring fill path, the start cap, arcs at r±5, and the handle.
-
-Port side: `Gtk::DrawingArea` + `set_draw_func` with Cairo, the two properties
-as plain accessors, the two signals as injected callbacks. Same two gestures,
-same five signal names.
-
-## 5 — shortcuts dialog
-
-| Widget | × | CSS | Notes |
+| Item | × | Action | Text |
 |---|---:|---|---|
-| `Adw.ShortcutsDialog` | 1 | — | top-level named object; **no title set**, so libadwaita supplies its own |
-| `Adw.ShortcutsSection` | 2 | — | `_("General")`, `_("Timer")` |
-| `Adw.ShortcutsItem` | 7 | — | see below |
+| `section` | 1 | — | — |
+| `item` | 1 | `app.shortcuts` | `_Keyboard Shortcuts` |
+| `item` | 1 | `app.openAbout` | `_About Sessions` |
 
-| Item | Resolves via |
+No `custom:` slots. Mnemonics are inside the msgid on both sides.
+
+### 4 — `internal/components/dial.go` → the dial
+
+| Facet | Value |
 |---|---|
-| `_("Open menu")` | literal accelerator `F10` |
-| `_("Show keyboard shortcuts")` | `app.shortcuts` |
-| `_("Close window")` | `win.closeWindow` |
-| `_("Quit")` | `app.quit` |
-| `_("Start or stop timer")` | `win.toggleTimer` |
-| `_("Add 30 seconds")` | `win.addTime` |
-| `_("Remove 30 seconds")` | `win.removeTime` |
+| Type | `Gtk.Widget` subclass (`SessionsDial`) overriding `snapshot`, drawing with `Gsk.PathBuilder` |
+| Properties | `remaining-time` (`ParamSpecInt`, 0…3600, default 300), `counting-down` (`ParamSpecBoolean`, default false) |
+| Signals it defines | `drag-begin`, `drag-end` (`SignalNewv`, RUN_FIRST, no args) |
+| Controllers | `Gtk.GestureDrag` (`drag-begin`, `drag-update`, `drag-end`), `Gtk.GestureClick` (`pressed`) |
+| Signals it consumes | `notify` on `Adw.StyleManager` → `QueueDraw` |
+| CSS | none of its own |
+| Geometry | `r = min(cx,cy) − 15`; 10px track; 8px handle; 15px dead zone; 120 intervals of 30s; `intervals == 0` means a full hour |
+| Colours | `accent_bg_color`, `error_color`, `destructive_color`, `window_bg_color`, `window_fg_color` looked up per frame; track is a hand-sampled grey (`#343437` dark / `#D8D8D8` light) |
+| Conditional shapes | insensitive → track becomes destructive·0.5 over window-bg; `countingDown && remaining == 0` → arc skipped entirely; high contrast → **six** extra hairlines (outer r+5 ring, inner r−5 ring, outer r+5 arc, inner r−5 arc, the start cap, the handle) **plus** a stroke of the filled wedge (or of the full fill ring when the arc closes) |
 
-Port side: `lib/shortcuts_dialog.rb` builds the same 2 sections and 7 items
-**in a loop**, so the scan reports `Adw.ShortcutsSection 1` and
-`Adw.ShortcutsItem 1`. Recorded as a repeater: one component, 2 and 7 at
-runtime, driven by the `#sections` table. Counting the scan row here would
-report a gap of 1 and 6 against a correct port.
+### 5 — `assets/resources/shortcuts-dialog.blp` → the shortcuts dialog
 
-## 6 — about dialog
+| Widget | × | Text | Notes |
+|---|---:|---|---|
+| `Adw.ShortcutsDialog` | 1 | — | no title set; libadwaita supplies its own, already translated |
+| `Adw.ShortcutsSection` | 2 | `General`, `Timer` | |
+| `Adw.ShortcutsItem` | 7 | `Open menu`, `Show keyboard shortcuts`, `Close window`, `Quit`, `Start or stop timer`, `Add 30 seconds`, `Remove 30 seconds` | 1 literal accelerator (`F10`), 6 resolved from action names |
 
-| Widget | × | Notes |
-|---|---:|---|
-| `Adw.AboutDialog` | 1 | built by `adw_about_dialog_new_from_appdata(metainfo resource, version)`, then `SetDevelopers` / `SetArtists` / `SetCopyright` / `SetTranslatorCredits(L("translator-credits"))` |
+Empty state: libadwaita's own "no results" status page, reached by typing into
+the dialog's search entry. Unreachable in upstream's build (see above).
 
-Everything else in the dialog — name, summary, description, release notes,
-licence, and the bugtracker / homepage / donation / help / contact / faq /
-vcs-browser / translate / contribute rows — comes from
-`assets/resources/metainfo.xml.in` and is therefore part of this unit even
-though no Go line names it. The rows libadwaita builds from
-`<url type="donation">` and `<url type="translate">` carry **libadwaita's own
-translated labels**; that is the fact the text axis turns on in
-`component-parity.md`.
+### 6 — `application.go:76-92` + `metainfo.xml.in` → the about dialog
+
+Upstream builds this with `adw_about_dialog_new_from_appdata(path, version)`.
+Per `Adw-1.gir` (libadwaita 1.9.3) that constructor sets **exactly nine**
+things: `application-icon`, `application-name`, `developer-name`, `version`,
+`website` (from `<url type="homepage">`), `support-url` (`help`), `issue-url`
+(`bugtracker`), `license-type` (`<project_license>`), and
+`release-notes`/`release-notes-version`. Upstream then sets `developers`,
+`artists`, `copyright` and `translator-credits` by hand.
+
+| Row | Source |
+|---|---|
+| name, icon, version, developer name | appdata |
+| developers (2), artists (2), copyright | `index.go` constants, set by hand |
+| licence `AGPL-3.0-or-later` | `<project_license>` |
+| release notes for 0.1.20 | appdata, `translate="no"` |
+| website / support / issue rows | appdata urls |
+| translator credits | `L("translator-credits")` |
+| **comments / description** | **not set** — `new_from_appdata` does not touch `comments` |
+| **link rows** | **none** — the constructor adds no `add_link` rows, and nothing in `application.go` calls `AddLink` |
+
+The `<url type="donation">`, `translate`, `vcs-browser`, `contribute`,
+`contact` and `faq` entries in the metainfo are therefore **consumed by nothing
+in upstream's About dialog.** They exist for AppStream stores. That matters for
+unit 6's parity verdict and is the one place where round five's inventory was
+wrong; see `component-parity.md`.
 
 ---
 
-## Whole-app totals
+## Files that belong to no unit
 
-| Axis | Upstream distinct | Port distinct |
-|---|---:|---:|
-| Widget types | 11 (window unit) + 1 dial + 3 dialog/shortcuts + 1 about | same set, with `Gtk.DrawingArea` substituted for the `Gtk.Widget` subclass |
-| CSS classes | 9 | 9 |
-| Signals | 10 | 10 |
-| Actions | 7 (`toggleTimer`, `addTime`, `removeTime`, `closeWindow`, `stopAlarmPlayback`, `openAbout`, `quit`) | 8 — the seven plus `shortcuts`, which upstream declares and never installs |
+Carried for completeness, each with a verdict rather than a shrug:
 
-A total is a map, not a verdict. The verdict is per unit, in
-`component-parity.md`.
+| Upstream | Port | Verdict |
+|---|---|---|
+| `LICENSE` | `LICENSE.md` (34 523 bytes, AGPL v3 text) | **present** — closed since round five |
+| `assets/meta/icon{,-alt,-symbolic}.svg` | `data/com.pojtinger.felicitas.Sessions{,-alt,-symbolic}.svg` | `cmp`-identical |
+| `assets/resources/alarm-clock-elapsed.oga` | `data/alarm-clock-elapsed.oga` | `cmp`-identical |
+| `assets/meta/*.desktop.in` | `data/com.pojtinger.felicitas.Sessions.desktop.in` | `diff`-identical |
+| `assets/resources/metainfo.xml.in` | `data/com.pojtinger.felicitas.Sessions.metainfo.xml.in` | `diff`-identical |
+| `assets/resources/index.gschema.xml` | `data/com.pojtinger.felicitas.Sessions.gschema.xml` | `diff`-identical |
+| `po/*.po` (26) | `po/*.po` (26) | all 26 `cmp`-identical |
+| `com.pojtinger.felicitas.Sessions.json` | — | **gap** |
+| `.github/workflows/flatpak.yaml` | — | **gap** (`.github/workflows/` does not exist in the port) |
+| `qt/main.go`, `qt/main.qml` | — | **gap** |
+| `sessions.doap` | — | **gap** |
+| `assets/meta/screenshot-{initial,running}.png` | — | **gap**; the port's metainfo cites them from `raw.githubusercontent.com/pojntfx/sessions` |
+| `README.md` (overview, tutorial, build instructions) | `README.md` (gem-template boilerplate) | **gap** — the port's metainfo `<url type="faq">` points at upstream's README `#tutorial`, a section the port's README does not have |
+| `go.mod`, `go.sum`, `go.mod.json`, `modules.txt` | `Gemfile`, `nix/Gemfile`, `gemset.nix`, `flake.nix` | build-system correspondence |
+
+## Rules observed
+
+- No widget type is listed without its CSS classes and its signals.
+- No scan row was struck as "not a widget" without opening the file; the
+  symbol table did the mechanical part and every unknown row was read.
+- Dynamic CSS classes are listed with every value they can take:
+  `dial__display--alarming`, and `suggested-action` ⇄ `destructive-action`.
+- Where a widget's handler is the only thing it does, the handler is named.
