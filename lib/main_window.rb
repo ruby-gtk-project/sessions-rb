@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'adwaita'
+require 'rexml/text'
 
 require_relative 'alarm'
 require_relative 'background_portal'
@@ -9,6 +10,7 @@ require_relative 'main_menu'
 require_relative 'resources'
 require_relative 'state_machine'
 require_relative 'style'
+require_relative 'translations'
 
 # MainWindow is the whole app: a dial with the remaining time written across
 # it, and minus / start-stop / plus underneath.
@@ -32,22 +34,38 @@ require_relative 'style'
 # the time label is updated from the dial's change callback instead of a
 # GObject property binding with a transform function.
 #
+# The time readout's row carries the accessible label upstream's blueprint
+# gives it (window.blp:53-55). `Gtk::Accessible#update_property` cannot set it
+# — the bindings raise NotImplementedError on an array of GtkAccessibleProperty
+# — so the row is built from a one-object Gtk::Builder snippet, which is the
+# same `<accessibility>` element a blueprint compiles to. FINDINGS.md records
+# the binding defect.
+#
 class MainWindow
+  include Translations
+
   WIDTH = 360
   HEIGHT = 380
   DIAL_SIZE = 260
 
-  # TRANSLATORS-equivalent note from upstream: the reason given when asking the
-  # system for permission to run in the background, and the two messages shown
-  # next to the app in the background-apps list.
-  BACKGROUND_REASON = 'Running the Timer in the Background'
-  TIMER_RUNNING_STATUS = 'Timer Running'
-  SESSION_FINISHED_STATUS = 'Session Finished'
-
-  START_LABEL = '_Start Timer'
-  STOP_LABEL = '_Stop'
   START_ICON = 'media-playback-start-symbolic'
   STOP_ICON = 'media-playback-stop-symbolic'
+
+  # The time readout's row, with the accessible label window.blp:53-55 gives
+  # it. The label is substituted rather than written in, because it is
+  # translated and Builder's own `translatable="yes"` would look the msgid up
+  # in GTK's domain rather than in this app's.
+  TIMER_ROW_UI = <<~XML
+    <?xml version="1.0" encoding="UTF-8"?>
+    <interface>
+      <object class="GtkListBoxRow" id="timer_row">
+        <property name="activatable">False</property>
+        <accessibility>
+          <property name="label">%<label>s</property>
+        </accessibility>
+      </object>
+    </interface>
+  XML
 
   ACCELERATORS = {
     'win.closeWindow' => ['<Primary>w'],
@@ -107,8 +125,8 @@ class MainWindow
       end
 
       toggle_timer_action.signal_connect('activate') { toggle_timer }
-      add_time_action.signal_connect('activate') { state_machine.plus_timer }
-      remove_time_action.signal_connect('activate') { state_machine.minus_timer }
+      add_time_action.signal_connect('activate') { report(:plus_timer, state_machine.plus_timer) }
+      remove_time_action.signal_connect('activate') { report(:minus_timer, state_machine.minus_timer) }
       close_window_action.signal_connect('activate') { win.close }
       stop_alarm_playback_action.signal_connect('activate') { stop_alarm_playback }
 
@@ -133,7 +151,7 @@ class MainWindow
   # broken in the bindings, so the application object stays a Gtk one.)
   def window
     @window ||= Adwaita::ApplicationWindow.new(@app).tap do |win|
-      win.title = Resources::APP_NAME
+      win.title = _('Sessions')
       win.icon_name = Resources::APP_ICON
       win.set_default_size(WIDTH, HEIGHT)
     end
@@ -143,13 +161,13 @@ class MainWindow
   def header_bar = @header_bar ||= Adwaita::HeaderBar.new
 
   def window_title
-    @window_title ||= Adwaita::WindowTitle.new(Resources::APP_NAME, '')
+    @window_title ||= Adwaita::WindowTitle.new(_('Sessions'), '')
   end
 
   def menu_button
     @menu_button ||= Gtk::MenuButton.new.tap do |button|
       button.icon_name = 'open-menu-symbolic'
-      button.tooltip_text = 'Main Menu'
+      button.tooltip_text = _('Main Menu')
       button.primary = true
       button.menu_model = main_menu.build
     end
@@ -188,13 +206,13 @@ class MainWindow
   end
 
   def timer_row
-    @timer_row ||= Gtk::ListBoxRow.new.tap do |row|
-      row.activatable = false
-    end
+    @timer_row ||= Gtk::Builder.new(
+      string: format(TIMER_ROW_UI, label: REXML::Text.normalize(_('Remaining Time'))),
+    )['timer_row']
   end
 
   def time_label
-    @time_label ||= Gtk::Label.new(format_time(@last_initial_remaining_time)).tap do |label|
+    @time_label ||= Gtk::Label.new(_('05:00')).tap do |label|
       label.margin_top = 12
       label.margin_bottom = 12
       label.margin_start = 12
@@ -218,7 +236,7 @@ class MainWindow
     @minus_button ||= Gtk::Button.new.tap do |button|
       button.action_name = 'win.removeTime'
       button.icon_name = 'list-remove-symbolic'
-      button.tooltip_text = 'Remove 30 seconds'
+      button.tooltip_text = _('Remove 30 seconds')
       button.valign = :center
       button.add_css_class('circular')
     end
@@ -230,7 +248,7 @@ class MainWindow
     @action_button ||= Gtk::Button.new.tap do |button|
       button.action_name = 'win.toggleTimer'
       button.icon_name = START_ICON
-      button.label = START_LABEL
+      button.label = _('_Start Timer')
       button.use_underline = true
       button.add_css_class('suggested-action')
       button.add_css_class('pill')
@@ -241,7 +259,7 @@ class MainWindow
     @plus_button ||= Gtk::Button.new.tap do |button|
       button.action_name = 'win.addTime'
       button.icon_name = 'list-add-symbolic'
-      button.tooltip_text = 'Add 30 seconds'
+      button.tooltip_text = _('Add 30 seconds')
       button.valign = :center
       button.add_css_class('circular')
     end
@@ -304,7 +322,7 @@ class MainWindow
 
     def on_start_timer
       dial.counting_down = true
-      hold_in_background(TIMER_RUNNING_STATUS)
+      hold_in_background(_('Timer Running'))
     end
 
     def on_stop_timer
@@ -322,11 +340,11 @@ class MainWindow
     def on_start_alarm
       dial.remaining_time = 0
       dial.counting_down = true
-      hold_in_background(SESSION_FINISHED_STATUS)
+      hold_in_background(_('Session Finished'))
       dial.sensitive = false
       time_label.add_css_class(Style::ALARMING_CLASS)
       alarm.start
-      announce(SESSION_FINISHED_STATUS)
+      announce(_('Session Finished'))
     end
 
     def on_stop_alarm
@@ -362,7 +380,7 @@ class MainWindow
     def show_start_appearance
       action_button.tap do |button|
         button.icon_name = START_ICON
-        button.label = START_LABEL
+        button.label = _('_Start Timer')
         button.remove_css_class('destructive-action')
         button.add_css_class('suggested-action')
       end
@@ -371,7 +389,7 @@ class MainWindow
     def show_stop_appearance
       action_button.tap do |button|
         button.icon_name = STOP_ICON
-        button.label = STOP_LABEL
+        button.label = _('_Stop')
         button.remove_css_class('suggested-action')
         button.add_css_class('destructive-action')
       end
@@ -379,18 +397,32 @@ class MainWindow
 
     def toggle_timer
       if @can_stop_timer
-        state_machine.stop_timer
+        report(:stop_timer, state_machine.stop_timer)
       elsif @can_stop_alarming
-        state_machine.stop_alarming
+        report(:stop_alarming, state_machine.stop_alarming)
       else
-        state_machine.start_timer
+        report(:start_timer, state_machine.start_timer)
       end
+    end
+
+    # Upstream logs every refused transition — thirteen `log.Error` /
+    # `log.Warn` sites across internal/components/main_window.go, each on the
+    # error `stateless` returns when a trigger is not permitted from the
+    # current state. The port's triggers answer `false` instead of an error,
+    # and before this nothing read the answer, so a press that could not be
+    # honoured produced nothing at all: no sound, no label change, no trace.
+    def report(trigger, fired)
+      unless fired
+        warn("sessions: #{trigger} is not permitted from #{state_machine.state}; #{state_machine}")
+      end
+
+      fired
     end
 
     # The notification's default action: silence the alarm and bring the window
     # back up.
     def stop_alarm_playback
-      state_machine.stop_alarming
+      report(:stop_alarming, state_machine.stop_alarming)
       @app.activate
     end
 
@@ -400,7 +432,7 @@ class MainWindow
     # exactly as it did before.
     def hold_in_background(status)
       unless @held
-        background_portal.request(reason: BACKGROUND_REASON) do |granted|
+        background_portal.request(reason: _('Running the Timer in the Background')) do |granted|
           if granted
             background_portal.status = status
             @app.hold
@@ -423,10 +455,12 @@ class MainWindow
     def format_time(seconds) = format('%02d:%02d', seconds / 60, seconds % 60)
 
     # Announcing the finished session is what makes the alarm reach a screen
-    # reader, which the blinking label on its own would not.
-    def announce(message)
-      time_label.announce(message, :high)
-    rescue StandardError => e
-      warn "Could not announce #{message.inspect}: #{e.message}"
-    end
+    # reader, which the blinking label on its own would not. Upstream:
+    # `internal/components/main_window.go:276`.
+    #
+    # Not rescued. `Gtk::Label#announce(message, priority)` is a method these
+    # bindings expose and a call that goes through without raising; if it ever
+    # stops being one, a backtrace is the only way anybody finds out, because
+    # a missing announcement is silent by definition.
+    def announce(message) = time_label.announce(message, :high)
 end

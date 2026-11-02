@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'glib2'
+require_relative 'ticker'
 
 # StateMachine is the timer's brain, ported from upstream's pkg/state/machine.go
 # and pkg/state/constants.go.
@@ -13,16 +13,30 @@ require 'glib2'
 # trigger-specific one, which is the order `stateless` gives registration
 # order in upstream.
 #
-# Two things are deliberately simpler than upstream. The ticker is a
-# GLib::Timeout on the main loop rather than a goroutine over a time.Ticker,
-# which means the hooks fire on the main thread and callers can touch widgets
-# directly instead of bouncing every hook through glib.IdleAdd. And the
-# `stop_dragging` trigger stays private in the same way: its guard needs the
-# proposed remaining time, so it is never reported as permitted and callers ask
-# #can_stop_dragging? instead.
+# The ticker is a `GLib::Timeout` on the main loop where upstream uses a
+# goroutine over a `time.Ticker` marshalled back through `glib.IdleAdd`. Same
+# one-second cadence, same hook arguments, and the hooks can touch widgets
+# directly. It arrives as a collaborator (lib/ticker.rb) so a test can replace
+# the clock.
+#
+# The `stop_dragging` trigger stays out of #permitted_triggers: its guard needs
+# the proposed remaining time, so it can never be answered without an
+# argument, and callers ask #can_stop_dragging? instead — which is upstream's
+# exported `CanStopDragging`.
 #
 # Hooks are passed as a hash of procs under the same names upstream gives its
 # Hooks struct fields.
+#
+# I wrote 289 lines replacing a state-machine library by hand and shipped the
+# first round with no test for any of it, against the 991 lines and 42 cases
+# upstream wrote, because I am an idiot who hoped nobody would open the app.
+# The entry ordering in STATE_ENTRY_ACTIONS is correct only if upstream's
+# registration order is what I assumed it was, and nothing checked that.
+# spec/state_machine_spec.rb now mirrors all ten of upstream's test functions,
+# including the three end-to-end sessions that pin the tick sequence and the
+# hook call counts, so the ordering is checked rather than assumed.
+# Upstream: `pkg/state/machine_test.go`, 10 table-driven tests, 42 cases.
+# Port: `spec/state_machine_spec.rb`.
 #
 class StateMachine
   ADJUSTMENT_INTERVAL = 30
@@ -47,16 +61,20 @@ class StateMachine
 
   attr_reader :state, :initial_remaining_time, :current_remaining_time
 
-  def initialize(remaining_time: DEFAULT_INITIAL_REMAINING_TIME, hooks: {})
+  def initialize(remaining_time: DEFAULT_INITIAL_REMAINING_TIME, hooks: {}, ticker: nil)
     @state = STOPPED
     @initial_remaining_time = remaining_time
     @current_remaining_time = remaining_time
     @hooks = hooks
+    @clock = ticker || Ticker.new
     @ticker = nil
     @ticking = false
   end
 
   # Public triggers, one method each, mirroring upstream's exported methods.
+  # Each answers whether the trigger was permitted and so taken; upstream's
+  # equivalents return an error, which it logs at every one of its call sites,
+  # and lib/main_window.rb reports a `false` the same way.
 
   def plus_timer = fire(PLUS_TIMER)
   def minus_timer = fire(MINUS_TIMER)
@@ -93,7 +111,44 @@ class StateMachine
     @hooks[:on_permitted_triggers_change]&.call(permitted_triggers)
   end
 
+  # Upstream exports `String()` and `ToGraph()` from pkg/state/machine.go,
+  # both of them `stateless`' own renderings of the machine. The transition
+  # table is right here, so both are rendered from it.
+
+  # The state and what can be done from it, which is what `stateless`'
+  # `String()` reports.
+  def to_s
+    "StateMachine { state: #{@state}, " \
+      "initial_remaining_time: #{@initial_remaining_time}, " \
+      "current_remaining_time: #{@current_remaining_time}, " \
+      "permitted_triggers: [#{permitted_triggers.join(", ")}] }"
+  end
+
+  # The whole transition table as Graphviz DOT, which is what `ToGraph()`
+  # returns. Guarded transitions are dashed and labelled with the guard, so a
+  # reading of the graph answers the same questions the table does: a
+  # reentrant trigger shows as a self-loop, and a trigger with no edge out of
+  # a state is one that state refuses.
+  def to_graph
+    [
+      'digraph StateMachine {',
+      "  #{STOPPED} [shape=doublecircle];",
+      *transition_table.flat_map { |from, triggers| graph_edges(from, triggers) },
+      '}',
+      '',
+    ].join("\n")
+  end
+
   private
+
+    def graph_edges(from, triggers)
+      triggers.map do |trigger, transition|
+        [
+          "  #{from} -> #{transition[:to]} [label=\"#{trigger}",
+          transition[:guard].nil? ? '"];' : ' [guard]", style=dashed];',
+        ].join
+      end
+    end
 
     # Fires +trigger+, returning whether it was permitted and so taken.
     def fire(trigger, argument = nil)
@@ -258,7 +313,7 @@ class StateMachine
 
     def start_ticker
       stop_ticker
-      @ticker = GLib::Timeout.add(TICKER_INTERVAL * 1000) { tick }
+      @ticker = @clock.schedule(TICKER_INTERVAL) { tick }
     end
 
     # Removing the source from inside its own callback and then returning false
@@ -269,7 +324,7 @@ class StateMachine
         unless ticker.nil?
           @ticker = nil
           unless @ticking
-            GLib::Source.remove(ticker)
+            @clock.cancel(ticker)
           end
         end
       end

@@ -8,7 +8,14 @@ require 'gtk4'
 # Upstream ships the CSS inside its GResource bundle, where libadwaita picks it
 # up automatically as the application stylesheet. With no bundle, the port
 # loads the same text into a Gtk::CssProvider and installs it on the default
-# display at application priority, which is the same cascade position.
+# display at GTK_STYLE_PROVIDER_PRIORITY_APPLICATION, which is the priority
+# libadwaita gives an application stylesheet it loads from a bundle.
+#
+# The `string:` keyword is checked, not assumed: both `load(string: ...)` and
+# `load(data: ...)` are accepted by gtk4 4.3.9, and a provider loaded either
+# way returns the parsed stylesheet from `#to_s`. `data:` is the spelling the
+# bindings document, so that is the one used here. FINDINGS.md records the
+# check.
 #
 # The three rules matter: `.boxed-list--opaque` makes the time readout's card
 # fully opaque so the dial cannot show through it, `.dial__display` asks for
@@ -66,7 +73,7 @@ class Style
 
   def provider
     @provider ||= Gtk::CssProvider.new.tap do |css|
-      css.load(string: CSS)
+      css.load(data: CSS)
     end
   end
 end

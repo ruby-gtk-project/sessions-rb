@@ -50,3 +50,10 @@ Appraisal.*.gemfile.lock
 # nix/ is the runtime gemdir for flake.nix: bundlerEnv needs its lock and
 # gemset committed or the app cannot be built reproducibly.
 !nix/Gemfile.lock
+
+# Generated from po/ by `rake gettext:data`; the .in templates are the sources.
+/data/com.pojtinger.felicitas.Sessions.desktop
+/data/com.pojtinger.felicitas.Sessions.metainfo.xml
+# Compiled gettext catalogues and schemas, built by `rake gettext:mo` / `rake schema:compile`.
+/po/*/LC_MESSAGES/*.mo
+/data/gschemas.compiled

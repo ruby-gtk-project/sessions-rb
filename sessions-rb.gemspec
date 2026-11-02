@@ -109,6 +109,19 @@ Gem::Specification.new do |spec|
   #       Development dependencies that require strictly newer Ruby versions should be in a "gemfile",
   #       and preferably a modular one (see gemfiles/modular/*.gemfile).
 
+  # Runtime: the app itself. These were in Gemfile only, which meant the
+  # Gemfile resolved them for development and an installed gem had no way to
+  # find them — `gem install sessions-rb && sessions` died on
+  # `require "adwaita"`. nix/Gemfile is generated from this list.
+  spec.add_dependency("adwaita", "~> 4.3")                                        # ruby >= 3.1
+  spec.add_dependency("gtk4", "~> 4.3")                                           # ruby >= 3.1
+  # `_()` and the .mo reader. Pure Ruby; it needs no system gettext at runtime.
+  spec.add_dependency("gettext", "~> 3.5")                                        # ruby >= 2.5
+  # lib/metainfo.rb parses the AppStream component the About dialog is built
+  # from. rexml is a bundled gem rather than a default one since Ruby 3.0, so
+  # it has to be declared or it is missing from a bundled install.
+  spec.add_dependency("rexml", "~> 3.4")                                          # ruby >= 2.5
+
   # Dev, Test, & Release Tasks
   spec.add_development_dependency("kettle-dev", "~> 3.1", ">= 3.1.22")             # ruby >= 3.4
 

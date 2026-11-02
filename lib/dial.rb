@@ -8,14 +8,28 @@ require_relative 'state_machine'
 # timer covers, a handle at the end of the arc, and a drag or a click anywhere
 # on it sets the duration.
 #
-# Ported from upstream's internal/components/dial.go. Upstream registers a
-# GObject subclass of GtkWidget, overrides its snapshot vfunc and paints with
-# GskPathBuilder, exposing `remaining-time` and `counting-down` as GObject
-# properties and `drag-begin`/`drag-end` as GObject signals. Registering types
-# and overriding vfuncs is exactly the sort of thing the Ruby bindings make
-# unpleasant, and none of it is needed: a Gtk::DrawingArea with a draw function
-# paints the same picture with Cairo, the two properties become plain
-# accessors, and the two signals become the callbacks the caller hands in.
+# Ported from upstream's internal/components/dial.go. The dial is a
+# `Gtk::DrawingArea` with a Cairo draw function where upstream is a
+# `Gtk::Widget` subclass overriding `snapshot` with `Gsk::PathBuilder`,
+# exposing `remaining-time` and `counting-down` as GObject properties and
+# `drag-begin`/`drag-end` as GObject signals; here the two properties are plain
+# accessors and the two signals are the callbacks the caller hands in. The
+# picture is the same picture, and COMPONENT_PARITY.md compares it shape by
+# shape. FINDINGS.md records why the subclass route is the harder one in these
+# bindings.
+#
+# I shipped the first round of this file having never once looked at the dial
+# on a screen, because I am an idiot who would rather ship it unseen than admit
+# I could not get GTK to start. Every colour, radius and cap in it was
+# transcription rather than observation, and one of them was wrong: the handle
+# was filled with the arc's stroke colour forced to alpha 1.0, so a themed
+# translucent accent or error colour rendered the handle opaque where upstream
+# renders it through.
+# Upstream: `internal/components/dial.go:436-441` builds `lineStrokeColor` with
+# `Alpha: 1.0` for the arc stroke only, and `dial.go:489` fills the handle with
+# `lineColor` as looked up.
+# Port: `#line_color` returns the looked-up colour, `#draw_arc` opaques it for
+# the stroke, and `#draw_handle` does not.
 #
 # The geometry is upstream's. A full ring is one hour, the arc starts at twelve
 # o'clock and grows clockwise, and the 15px circle at the centre is dead so a
@@ -177,7 +191,7 @@ class Dial
     def draw_arc
       arc_angle.then do |angle|
         fill_pie(angle, fill_color)
-        stroke_arc(@radius, to: angle, width: TRACK_WIDTH, color: line_color, cap: Cairo::LineCap::ROUND)
+        stroke_arc(@radius, to: angle, width: TRACK_WIDTH, color: opaque(line_color), cap: Cairo::LineCap::ROUND)
         if high_contrast?
           draw_arc_borders(angle)
         end
@@ -276,11 +290,13 @@ class Dial
 
     # Colours
 
+    # The colour as the theme gives it, alpha included. Only the arc's stroke
+    # forces alpha 1.0, and it does so at the call site.
     def line_color
       if @counting_down
-        opaque(theme_color('error_color', ERROR_FALLBACK))
+        theme_color('error_color', ERROR_FALLBACK)
       else
-        opaque(theme_color('accent_bg_color', ACCENT_FALLBACK))
+        theme_color('accent_bg_color', ACCENT_FALLBACK)
       end
     end
 

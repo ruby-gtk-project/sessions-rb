@@ -3,4 +3,9 @@
 
 require "sessions"
 
+# main.go binds the gettext domain from an `init` function, before anything
+# builds a widget, so every string the app ever shows is already translatable
+# by the time it is asked for. This is the same point in the same order.
+Translations.install
+
 Sessions::Application.new.build.run

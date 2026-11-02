@@ -1,0 +1,178 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-02 05:30+0000\n"
+"PO-Revision-Date: 2026-11-02 05:30+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: ../lib/about_dialog.rb:96
+msgid "translator-credits"
+msgstr ""
+
+#: ../lib/about_dialog.rb:107
+msgid "Donate"
+msgstr ""
+
+#: ../lib/about_dialog.rb:108
+msgid "Translate"
+msgstr ""
+
+#: ../lib/about_dialog.rb:109
+msgid "Source Code"
+msgstr ""
+
+#: ../lib/about_dialog.rb:110
+msgid "Contribute"
+msgstr ""
+
+#: ../lib/alarm.rb:56 ../lib/main_window.rb:343 ../lib/main_window.rb:347
+msgid "Session Finished"
+msgstr ""
+
+#: ../lib/alarm.rb:57
+msgid "Time to take a break"
+msgstr ""
+
+#: ../lib/main_menu.rb:35
+msgid "_Keyboard Shortcuts"
+msgstr ""
+
+#: ../lib/main_menu.rb:36
+msgid "_About Sessions"
+msgstr ""
+
+#: ../lib/main_window.rb:154 ../lib/main_window.rb:164
+#: data/com.pojtinger.felicitas.Sessions.desktop.in:4
+#: data/com.pojtinger.felicitas.Sessions.metainfo.xml.in:7
+msgid "Sessions"
+msgstr ""
+
+#: ../lib/main_window.rb:170
+msgid "Main Menu"
+msgstr ""
+
+#: ../lib/main_window.rb:210
+msgid "Remaining Time"
+msgstr ""
+
+#: ../lib/main_window.rb:215
+msgid "05:00"
+msgstr ""
+
+#: ../lib/main_window.rb:239 ../lib/shortcuts_dialog.rb:63
+msgid "Remove 30 seconds"
+msgstr ""
+
+#: ../lib/main_window.rb:251 ../lib/main_window.rb:383
+msgid "_Start Timer"
+msgstr ""
+
+#: ../lib/main_window.rb:262 ../lib/shortcuts_dialog.rb:62
+msgid "Add 30 seconds"
+msgstr ""
+
+#: ../lib/main_window.rb:325
+msgid "Timer Running"
+msgstr ""
+
+#: ../lib/main_window.rb:392
+msgid "_Stop"
+msgstr ""
+
+#: ../lib/main_window.rb:435
+msgid "Running the Timer in the Background"
+msgstr ""
+
+#: ../lib/shortcuts_dialog.rb:50
+msgid "General"
+msgstr ""
+
+#: ../lib/shortcuts_dialog.rb:52
+msgid "Open menu"
+msgstr ""
+
+#: ../lib/shortcuts_dialog.rb:53
+msgid "Show keyboard shortcuts"
+msgstr ""
+
+#: ../lib/shortcuts_dialog.rb:54
+msgid "Close window"
+msgstr ""
+
+#: ../lib/shortcuts_dialog.rb:55
+msgid "Quit"
+msgstr ""
+
+#: ../lib/shortcuts_dialog.rb:59
+msgid "Timer"
+msgstr ""
+
+#: ../lib/shortcuts_dialog.rb:61
+msgid "Start or stop timer"
+msgstr ""
+
+#: data/com.pojtinger.felicitas.Sessions.desktop.in:5
+#: data/com.pojtinger.felicitas.Sessions.metainfo.xml.in:8
+msgid "Focus with timed work intervals"
+msgstr ""
+
+#. TRANSLATORS: Search terms to find this application.
+#. Do NOT translate or localize the semicolons!
+#. The list MUST also end with a semicolon!
+#: data/com.pojtinger.felicitas.Sessions.desktop.in:13
+msgid "pomodoro;timer;productivity;focus;work intervals;task management;"
+msgstr ""
+
+#: data/com.pojtinger.felicitas.Sessions.metainfo.xml.in:10
+msgid ""
+"Sessions is a simple visual timer application designed specifically for the "
+"pomodoro technique, helping you stay productive by breaking work into "
+"focused sessions with regular breaks."
+msgstr ""
+
+#: data/com.pojtinger.felicitas.Sessions.metainfo.xml.in:13
+msgid "It enables you to:"
+msgstr ""
+
+#: data/com.pojtinger.felicitas.Sessions.metainfo.xml.in:15
+msgid "Start focused work sessions with customizable timer durations"
+msgstr ""
+
+#: data/com.pojtinger.felicitas.Sessions.metainfo.xml.in:16
+msgid "Track your progress with a clean, distraction-free interface"
+msgstr ""
+
+#: data/com.pojtinger.felicitas.Sessions.metainfo.xml.in:17
+msgid "Take regular breaks to maintain productivity"
+msgstr ""
+
+#: data/com.pojtinger.felicitas.Sessions.metainfo.xml.in:65
+msgid "Setting up a new timer session"
+msgstr ""
+
+#: data/com.pojtinger.felicitas.Sessions.metainfo.xml.in:70
+msgid "Timer running during a work session"
+msgstr ""
+
+#: data/com.pojtinger.felicitas.Sessions.gschema.xml:6
+msgid "Last timer position"
+msgstr ""
+
+#: data/com.pojtinger.felicitas.Sessions.gschema.xml:7
+msgid ""
+"The last manually set timer position that will be restored when the app "
+"starts"
+msgstr ""

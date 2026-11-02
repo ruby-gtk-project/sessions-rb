@@ -1,0 +1,165 @@
+msgid ""
+msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-09 14:33-0700\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+#: ../assets/resources/shortcuts-dialog.blp:6
+msgid "General"
+msgstr "Allgemein"
+
+#: ../assets/resources/shortcuts-dialog.blp:9
+msgid "Open menu"
+msgstr "Menü öffnen"
+
+#: ../assets/resources/shortcuts-dialog.blp:14
+msgid "Show keyboard shortcuts"
+msgstr "Tastaturkürzel anzeigen"
+
+#: ../assets/resources/shortcuts-dialog.blp:19
+msgid "Close window"
+msgstr "Fenster schließen"
+
+#: ../assets/resources/shortcuts-dialog.blp:24
+msgid "Quit"
+msgstr "Beenden"
+
+#: ../assets/resources/shortcuts-dialog.blp:30
+msgid "Timer"
+msgstr "Timer"
+
+#: ../assets/resources/shortcuts-dialog.blp:33
+msgid "Start or stop timer"
+msgstr "Timer starten oder stoppen"
+
+#: ../assets/resources/shortcuts-dialog.blp:38
+#: ../assets/resources/window.blp:114
+msgid "Add 30 seconds"
+msgstr "30 Sekunden hinzufügen"
+
+#: ../assets/resources/shortcuts-dialog.blp:43
+#: ../assets/resources/window.blp:91
+msgid "Remove 30 seconds"
+msgstr "30 Sekunden entfernen"
+
+#: ../assets/resources/window.blp:7 ../assets/resources/window.blp:13
+#: ../assets/meta/com.pojtinger.felicitas.Sessions.desktop.in:4
+#: ../assets/resources/metainfo.xml.in:7
+msgid "Sessions"
+msgstr "Sitzungen"
+
+#: ../assets/resources/window.blp:19
+msgid "Main Menu"
+msgstr "Hauptmenü"
+
+#: ../assets/resources/window.blp:54
+msgid "Remaining Time"
+msgstr "Verbleibende Zeit"
+
+#: ../assets/resources/window.blp:58
+msgid "05:00"
+msgstr "05:00"
+
+#: ../assets/resources/window.blp:102 ../internal/components/main_window.go:342
+msgid "_Start Timer"
+msgstr "_Timer starten"
+
+#: ../assets/resources/window.blp:129
+msgid "_Keyboard Shortcuts"
+msgstr "_Tastaturkürzel"
+
+#: ../assets/resources/window.blp:134
+msgid "_About Sessions"
+msgstr "Ü_ber Sitzungen"
+
+#. TRANSLATORS: Replace "translator-credits" with your name/username, and optionally an email or URL.
+#: ../internal/components/application.go:88
+msgid "translator-credits"
+msgstr "Felicitas Pojtinger <felicitas@pojtinger.com>"
+
+#. TRANSLATORS: Reason given when requesting permission to run in the background from the system.
+#: ../internal/components/main_window.go:119
+#: ../internal/components/main_window.go:231
+msgid "Running the Timer in the Background"
+msgstr "Timer im Hintergrund laufen lassen"
+
+#. TRANSLATORS: Message shown in the background apps list next to the app while the app is running in the background.
+#: ../internal/components/main_window.go:133
+msgid "Timer Running"
+msgstr "Timer läuft"
+
+#. TRANSLATORS: Message shown in the background apps list next to the app while the app is running in the background and the session has finished.
+#: ../internal/components/main_window.go:245
+#: ../internal/components/main_window.go:264
+#: ../internal/components/main_window.go:276
+msgid "Session Finished"
+msgstr "Sitzung beendet"
+
+#: ../internal/components/main_window.go:265
+msgid "Time to take a break"
+msgstr "Zeit für eine Pause"
+
+#: ../internal/components/main_window.go:350
+msgid "_Stop"
+msgstr "_Stoppen"
+
+#: ../assets/meta/com.pojtinger.felicitas.Sessions.desktop.in:5
+#: ../assets/resources/metainfo.xml.in:8
+msgid "Focus with timed work intervals"
+msgstr "Fokussiere mit getakteten Arbeitsintervallen"
+
+#. TRANSLATORS: Search terms to find this application.
+#. Do NOT translate or localize the semicolons!
+#. The list MUST also end with a semicolon!
+#: ../assets/meta/com.pojtinger.felicitas.Sessions.desktop.in:13
+msgid "pomodoro;timer;productivity;focus;work intervals;task management;"
+msgstr "pomodoro;Timer;Produktivität;Fokus;Arbeitsintervalle;Aufgabenverwaltung;"
+
+#: ../assets/resources/metainfo.xml.in:10
+msgid ""
+"Sessions is a simple visual timer application designed specifically for the "
+"pomodoro technique, helping you stay productive by breaking work into "
+"focused sessions with regular breaks."
+msgstr ""
+"Sessions ist eine einfache visuelle Timer-Anwendung, die speziell für die "
+"Pomodoro-Technik entwickelt wurde und Ihnen hilft, produktiv zu bleiben, "
+"indem sie die Arbeit in fokussierte Sitzungen mit regelmäßigen Pausen "
+"unterteilt."
+
+#: ../assets/resources/metainfo.xml.in:13
+msgid "It enables you to:"
+msgstr "Es ermöglicht Ihnen:"
+
+#: ../assets/resources/metainfo.xml.in:15
+msgid "Start focused work sessions with customizable timer durations"
+msgstr "Fokussierte Arbeitssitzungen mit anpassbaren Timer-Dauern starten"
+
+#: ../assets/resources/metainfo.xml.in:16
+msgid "Track your progress with a clean, distraction-free interface"
+msgstr ""
+"Ihren Fortschritt mit einer sauberen, ablenkungsfreien Benutzeroberfläche "
+"verfolgen"
+
+#: ../assets/resources/metainfo.xml.in:17
+msgid "Take regular breaks to maintain productivity"
+msgstr "Regelmäßige Pausen einlegen, um die Produktivität aufrechtzuerhalten"
+
+#: ../assets/resources/metainfo.xml.in:65
+msgid "Setting up a new timer session"
+msgstr "Einrichten einer neuen Timer-Sitzung"
+
+#: ../assets/resources/metainfo.xml.in:70
+msgid "Timer running during a work session"
+msgstr "Timer läuft während einer Arbeitssitzung"
+
+#: ../assets/resources/index.gschema.xml:6
+msgid "Last timer position"
+msgstr "Letzte Timer-Position"
+
+#: ../assets/resources/index.gschema.xml:7
+msgid ""
+"The last manually set timer position that will be restored when the app "
+"starts"
+msgstr ""
+"Die letzte Timer-Position die manuell eingestellt wurde und bei einem App-"
+"Neustart wiederhergestellt wird"

@@ -1,0 +1,22 @@
+# Every file in this port that contains a translatable string, which is what
+# xgettext / rxgettext is pointed at. Upstream's equivalent list is implicit in
+# the `find` commands of po/index.go's go:generate lines, and names `.go` and
+# `.blp` files that this port does not have.
+#
+# The domain is `sessions`, upstream's, and the msgids in po/*.po are
+# upstream's. Nothing here starts a new catalogue.
+
+# Templates, merged into the installed copies by `rake gettext:data`.
+data/com.pojtinger.felicitas.Sessions.desktop.in
+data/com.pojtinger.felicitas.Sessions.metainfo.xml.in
+
+# Translated by GLib at runtime from gettext-domain="sessions"; no merge step.
+data/com.pojtinger.felicitas.Sessions.gschema.xml
+
+# Ruby, through the `gettext` gem's `_()`.
+exe/sessions
+lib/about_dialog.rb
+lib/alarm.rb
+lib/main_menu.rb
+lib/main_window.rb
+lib/shortcuts_dialog.rb

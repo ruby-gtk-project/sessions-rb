@@ -242,54 +242,145 @@ GResource half has no equivalent (resources are loaded from the filesystem).
 `.github/workflows/flatpak.yaml`. These become `data/` files if the port is ever
 packaged; none of them is a `lib/*.rb`.
 
-## Out of scope
+## The second frontend — an open gap, not out of scope
 
-`qt/main.go` + `qt/main.qml` are a separate Qt/QML frontend in the same repo,
-not part of the GTK application. `go.mod`, `go.sum`, `modules.txt`,
-`go.mod.json`, `sessions.doap`, `LICENSE`, `README.md` carry no components.
+`qt/main.go` + `qt/main.qml` are a Qt/QML frontend of this same app, shipped in
+upstream's repository at `ad77fb2`. The previous version of this section filed
+them under a heading reading **Out of scope**, which was me redefining the
+target until the port hit it. Upstream set the scope by shipping the frontend;
+the port does not get to shrink it.
+
+I have not ported them and I am not going to this round: a QML frontend in Ruby
+is a different toolkit, a different binding set (qml-ruby or ruby-qml, neither
+of which is in this flake) and a second window tree, and starting one badly is
+worse than leaving the row open.
+Upstream: `qt/main.go` (87 lines), `qt/main.qml` (121 lines).
+Port: nothing.
+Owner: unassigned — this row is open in `COMPONENT_PARITY.md` and stays open
+until someone takes it or upstream drops the frontend.
+
+`go.mod`, `go.sum`, `modules.txt`, `go.mod.json`, `sessions.doap`, `LICENSE`
+and `README.md` carry no components.
 
 ---
 
 ## Blockers and divergences
 
-1. **The dial cannot be a GSK-snapshot `Gtk::Widget` subclass.** Upstream
-   overrides the `snapshot` vfunc and draws with `Gsk::PathBuilder`,
-   `Gsk::Stroke`, `AppendFill`/`AppendStroke` and `Graphene::Point`. The Ruby
-   bindings expose no usable vfunc override for `snapshot` and no `Gsk` path
-   API; the house pattern for custom drawing is `Gtk::DrawingArea` with
-   `set_draw_func` and Cairo (`references/declarative-patterns.md`). The dial is
-   ported as a `Gtk::DrawingArea` drawn with Cairo arcs — visually equivalent,
-   including the high-contrast borders, but not the same mechanism.
+Rewritten in place after round two. The binding limitations that used to be the
+subject of these paragraphs have moved to `FINDINGS.md`, where they are reasons
+a gap is hard rather than reasons it is acceptable. Four of the ten were simply
+wrong, and are marked.
+
+1. **The dial is a `Gtk::DrawingArea`, not a GSK-snapshot `Gtk::Widget`
+   subclass.** Upstream overrides the `snapshot` vfunc and draws with
+   `Gsk::PathBuilder`, `Gsk::Stroke`, `AppendFill`/`AppendStroke` and
+   `Graphene::Point`; `lib/dial.rb` draws the same shapes with Cairo arcs in a
+   `set_draw_func`. The picture is now a picture I have looked at —
+   `tmp/shots/01-initial.png` and `03-counting-down.png` from
+   `test/drive_main_window.rb` — and it matches upstream's screenshots.
+   **The previous version of this paragraph said the dial "cannot" be drawn
+   and gave the bindings as the reason. `lib/dial.rb` is 437 lines and has
+   been drawn on a screen since. The note outlived the problem.**
+   Upstream: `internal/components/dial.go:296-492`.
+   Port: `lib/dial.rb:148-215`.
+   Why it is hard: `FINDINGS.md`, "No vfunc override for snapshot".
+
 2. **The dial's custom GObject properties and `drag-begin`/`drag-end` signals
-   go away.** `remaining-time` is bound to the label's `label` property through
-   a `BindPropertyFull` transform upstream. In Ruby the dial exposes plain
-   accessors and a callback, and the window formats the label itself.
-3. **GSettings needs a compiled, installed schema.** Backed by a JSON file under
-   `XDG_CONFIG_HOME` instead, exactly as the pilot port does; the key name,
-   type and default are preserved.
-4. **GResource is not used.** `window.ui`, `shortcuts-dialog.ui`, `metainfo.xml`,
-   `style.css` and the alarm sound are compiled into a GResource upstream (and
-   the two `.ui` files are generated from blueprint). The port builds widgets in
-   Ruby and loads the sound and CSS from the filesystem.
-5. **The XDG background portal has no Ruby binding here.** Upstream uses a Go
-   portal library over D-Bus. Without it the port can still `app.hold`-equivalent
-   and set `hide-on-close`, but cannot request background permission or set the
-   background-apps status message; those two strings ("Running the Timer in the
-   Background", "Timer Running") have no port-side home unless a D-Bus call is
-   written by hand.
-6. **`Gtk::Accessible#announce` is not exposed by the Ruby bindings** (nor is the
-   `accessibility { label: ... }` blueprint block, which becomes
-   `update_property`/`accessible_role` calls). The alarm's screen-reader
-   announcement is likely to be lost; the "Remaining Time" row label can be set
-   via `Gtk::Accessible` property updates.
-7. **`Adwaita::Application` and `Adwaita::ApplicationWindow` are partly broken**
-   in the Ruby bindings — the app object must be `Gtk::Application`
-   (`references/adwaita-quirks.md`), which is what the skeleton already does.
-8. **`adw_about_dialog_new_from_appdata` has no Ruby equivalent**; the About
-   dialog's fields are filled from the metainfo values by hand.
-9. **`NewAboutDialogFromAppdata` reads release notes from `metainfo.xml`** —
-   the port's About dialog will have no "What's New" section unless the releases
-   are transcribed.
-10. **27 `po/` catalogues.** The port has no gettext wiring at all today; strings
-    are inline English. Reaching translation parity is a separate unit (see the
-    `translation-parity` skill), not something the component port delivers.
+   are plain accessors and callbacks.** `remaining-time` is bound to the
+   label's `label` through a `BindPropertyFull` transform upstream; here the
+   dial announces each write and `lib/main_window.rb` formats the label.
+   Behaviourally identical and driven in
+   `test/drive_main_window.rb` step "the dial's drag gesture is wired".
+   Upstream: `internal/components/dial.go:110-140`.
+   Port: `lib/dial.rb:123-140`.
+
+3. **The last-position preference is back in GSettings.** It was in a JSON file
+   under `XDG_CONFIG_HOME`, where `gsettings get` could not see it, dconf-editor
+   could not show it and no GSettings-aware backup tool would carry it. I had
+   written that requiring an install step was "worse than the alternative",
+   which was me mistaking giving up for a design decision — upstream handles
+   exactly that case and I had read the code that does it.
+   Upstream: `main.go:43-58` + `assets/resources/index.gschema.xml`.
+   Port: `lib/settings.rb`, with `rake schema:compile` for a checkout.
+
+4. **GResource is not used.** `window.ui`, `shortcuts-dialog.ui`,
+   `metainfo.xml`, `style.css` and the alarm sound are compiled into a
+   GResource upstream. The port builds widgets in Ruby and reads the rest from
+   `data/`. One consequence is not cosmetic and is its own row:
+   `adw_about_dialog_new_from_appdata` takes a *resource* path, so the About
+   dialog is filled field by field from `lib/metainfo.rb` instead.
+   Upstream: `assets/resources/index.gresource.xml`.
+   Port: `lib/resources.rb`, `lib/metainfo.rb`.
+
+5. **The XDG background portal is a hand-written D-Bus call.**
+   `lib/background_portal.rb` is 156 lines of it and the two strings are set
+   from `lib/main_window.rb`.
+   **The previous version of this paragraph said those two strings had "no
+   port-side home unless a D-Bus call is written by hand". The D-Bus call was
+   written by hand, in the same round, and nobody came back to the note.**
+   Upstream: `internal/components/main_window.go:110-140`.
+   Port: `lib/background_portal.rb`, `lib/main_window.rb:430-445`.
+
+6. **The accessibility work is done, by two different routes.**
+   `Gtk::Label#announce(message, :high)` exists and works — I checked it by
+   calling it, which is what the previous version of this paragraph ("likely to
+   be lost") should have said instead of predicting. The `Remaining Time` row
+   label is set, but not with `update_property`: that raises
+   `NotImplementedError` in these bindings, so the row is built from a
+   one-object `Gtk::Builder` snippet carrying the same `<accessibility>`
+   element a blueprint compiles to.
+   Upstream: `assets/resources/window.blp:53-55`,
+   `internal/components/main_window.go:276`.
+   Port: `lib/main_window.rb` `TIMER_ROW_UI` and `#announce`.
+   Why the direct route is hard: `FINDINGS.md`, "update_property".
+
+7. **`Adwaita::Application` and `Adwaita::ApplicationWindow`.** The application
+   object is a `Gtk::Application` with `Adwaita.init` called first, per
+   `references/adwaita-quirks.md`; the *window* is an
+   `Adwaita::ApplicationWindow` and works, which the screenshots show.
+   Upstream: `internal/components/application.go:30-60`.
+   Port: `lib/application.rb:53-58`, `lib/main_window.rb:147-158`.
+
+8. **The About dialog is filled by hand from the appdata, and two of its link
+   rows are English.** `lib/metainfo.rb` parses
+   `data/com.pojtinger.felicitas.Sessions.metainfo.xml.in` and supplies the
+   summary, the description's paragraphs and bullets and the release notes, so
+   the "What's New" section is there — `tmp/shots/07-about.png`. What is still
+   missing is the *translated* titles of the Donate and Translate rows, which
+   upstream gets from libadwaita's own catalogue via the appdata constructor.
+   **The previous version said the constructor had "no Ruby equivalent", which
+   confused the mechanism with the behaviour: all of the behaviour except those
+   two row titles turned out to be reachable.**
+   Upstream: `internal/components/application.go:76`.
+   Port: `lib/about_dialog.rb`.
+   Why the rest is hard: `FINDINGS.md`, "AdwAboutDialog has no donations-url".
+
+9. **The release notes are transcribed — by parsing, not by copying.**
+   **The previous version said the port "will have no 'What's New' section
+   unless the releases are transcribed", in the future tense, about a file
+   already in this repository.** `lib/metainfo.rb` reads the twenty-one
+   `<release>` entries out of `data/*.metainfo.xml.in` at startup, so there is
+   one copy of them and it is the one AppStream reads.
+   Upstream: `assets/resources/metainfo.xml.in:78-220`.
+   Port: `lib/metainfo.rb#releases`, `lib/about_dialog.rb#release_notes`.
+
+10. **The 26 catalogues are in.** `po/` holds upstream's twenty-six `.po` files
+    and the domain is upstream's, `sessions`. **The previous version called
+    translation "a separate unit… not something the component port delivers",
+    which is a scope redefinition: 32 messages and 682 translated strings do
+    not stop being part of the component because a different skill names them.**
+    Port: `po/`, `lib/translations.rb`, `rakelib/gettext.rake`,
+    `TRANSLATION_PARITY.md`.
+
+11. **No Flatpak manifest.** Upstream's builds Go with
+    `org.freedesktop.Sdk.Extension.golang`; there is no equivalent Ruby SDK
+    extension, so a Ruby manifest has to build Ruby and eight ruby-gnome C
+    extensions from pinned sources inside the manifest. I have not written it
+    and I did not want to ship half of one, because a manifest that does not
+    build is indistinguishable from one nobody has tried.
+    The install half of the gap *is* closed: `rake install_data` and
+    flake.nix's `installPhase` put the desktop entry, metainfo, icons, schema
+    and catalogues where a desktop reads them.
+    Upstream: `com.pojtinger.felicitas.Sessions.json`,
+    `.github/workflows/flatpak.yaml`.
+    Port: `rakelib/gettext.rake` (`install_data`), `flake.nix`; no manifest.
