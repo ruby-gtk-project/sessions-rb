@@ -1,0 +1,43 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    glib2 (4.3.9)
+      native-package-installer (>= 1.0.3)
+      pkg-config (>= 1.3.5)
+    native-package-installer (1.1.9)
+    pkg-config (1.6.6)
+    ruby-qt6-qtcore (6.3.0)
+      ruby-qt6-rice (= 6.3.0)
+    ruby-qt6-qtgui (6.3.0)
+      ruby-qt6-qtcore (~> 6.3.0)
+      ruby-qt6-rice (= 6.3.0)
+    ruby-qt6-qtqml (6.3.0)
+      ruby-qt6-qtcore (~> 6.3.0)
+      ruby-qt6-rice (= 6.3.0)
+    ruby-qt6-qtquick (6.3.0)
+      ruby-qt6-qtcore (~> 6.3.0)
+      ruby-qt6-qtgui (~> 6.3.0)
+      ruby-qt6-qtqml (~> 6.3.0)
+      ruby-qt6-rice (= 6.3.0)
+    ruby-qt6-qtquickcontrols2 (6.3.0)
+      ruby-qt6-qtcore (~> 6.3.0)
+      ruby-qt6-rice (= 6.3.0)
+    ruby-qt6-qtwidgets (6.3.0)
+      ruby-qt6-qtcore (~> 6.3.0)
+      ruby-qt6-qtgui (~> 6.3.0)
+      ruby-qt6-rice (= 6.3.0)
+    ruby-qt6-rice (6.3.0)
+
+PLATFORMS
+  ruby
+  x86_64-linux
+
+DEPENDENCIES
+  glib2 (= 4.3.9)
+  ruby-qt6-qtqml
+  ruby-qt6-qtquick
+  ruby-qt6-qtquickcontrols2
+  ruby-qt6-qtwidgets
+
+BUNDLED WITH
+   2.7.2

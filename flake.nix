@@ -106,9 +106,101 @@
           gemdir = ./nix;
         };
 
-        # The launcher is whatever the gemspec installs into exe/. Reading the
-        # directory keeps this flake generic: no name to keep in step by hand.
-        launcher = builtins.head (builtins.attrNames (builtins.readDir ./exe));
+        # The Qt frontend's bundle, kept apart from the GTK one for the reason
+        # nix/qt/Gemfile states: `ruby-qt6-*` are C++ extensions against Qt 6
+        # and no GTK code path loads them, so they must not be in the closure
+        # of `packages.default`. glib2 is in both, pinned to one version.
+        qtGems = pkgs.bundlerEnv {
+          name = "sessions-qt-gems";
+          ruby = pkgs.ruby_3_4;
+          gemdir = ./nix/qt;
+          gemConfig = pkgs.defaultGemConfig // {
+            glib2 = rubyGnomeGem;
+            ruby-qt6-rice = rubyQt6Gem;
+            ruby-qt6-qtcore = rubyQt6Gem;
+            ruby-qt6-qtgui = rubyQt6Gem;
+            ruby-qt6-qtwidgets = rubyQt6Gem;
+            ruby-qt6-qtqml = rubyQt6Gem;
+            ruby-qt6-qtquick = rubyQt6Gem;
+            ruby-qt6-qtquickcontrols2 = rubyQt6Gem;
+          };
+        };
+
+        # The two launchers in exe/, named rather than read out of the
+        # directory. This used to be `head (attrNames (readDir ./exe))`, which
+        # was unambiguous only while exe/ held one file; exe/sessions-qt is the
+        # second frontend (qt/main.go upstream) and sorts right after
+        # exe/sessions, so the old expression still picked the GTK launcher by
+        # luck. Both are spelled out so neither can move under the other.
+        launcher = "sessions";
+        qtLauncher = "sessions-qt";
+
+        # Qt's build tooling splits over several outputs and the Ruby
+        # `ruby-qt6-*` gems' extconf asks one `qmake6 -query` for a single
+        # QT_INSTALL_HEADERS and QT_INSTALL_LIBS — so every module's headers
+        # and libraries have to appear under one prefix, which is what this
+        # join is for. qtshadertools is here because qtdeclarative's headers
+        # include it, not because anything in the port names it.
+        qtJoined = pkgs.symlinkJoin {
+          name = "qt6-for-rubyqt6";
+          paths = with pkgs.qt6; [
+            qtbase.dev
+            qtbase
+            qtdeclarative.dev
+            qtdeclarative
+            qtsvg.dev
+            qtsvg
+            qtshadertools.dev
+            qtshadertools
+          ];
+        };
+
+        # data/qt/main.qml's four imports: QtQuick, QtQuick.Layouts and
+        # QtQuick.Controls out of qtdeclarative, org.kde.kirigami out of
+        # Kirigami — and qqc2-desktop-style, which is the Controls style
+        # Kirigami selects on a desktop and which fails the import silently,
+        # leaving an unstyled window, if it is missing.
+        qmlStack = with pkgs; [
+          qt6.qtdeclarative
+          qt6.qtsvg
+          kdePackages.kirigami
+          kdePackages.qqc2-desktop-style
+        ];
+
+        # `kdePackages.kirigami` is a wrapper derivation whose own output holds
+        # nothing but nix-support/propagated-build-inputs — the QML modules are
+        # in `.unwrapped`. Taking `.out` alone put an empty directory on
+        # QML_IMPORT_PATH and `import org.kde.kirigami` then failed with the
+        # path looking perfectly plausible in the wrapper.
+        qmlModuleRoot = drv:
+          let base = drv.unwrapped or drv; in base.out or base;
+
+        qmlImportPath = pkgs.lib.makeSearchPath "lib/qt-6/qml"
+          (map qmlModuleRoot qmlStack);
+
+        # The QPA platform plugin (xcb/wayland) and the Qt Quick scene graph's
+        # own plugins. Without this a Qt process exits with "could not find or
+        # load the Qt platform plugin".
+        qtPluginPath = pkgs.lib.makeSearchPath "lib/qt-6/plugins"
+          (map qmlModuleRoot ([ pkgs.qt6.qtbase pkgs.qt6.qtsvg ] ++ qmlStack));
+
+        # The `ruby-qt6-*` gems compile Rice-generated C++ against Qt 6. The
+        # extconf reads QMAKE, QT_INSTALL_HEADERS and QT_INSTALL_LIBS from the
+        # environment before it tries to find qmake on PATH, which is the
+        # supported way to point it at a prefix it would not have guessed.
+        rubyQt6Gem = _attrs: {
+          nativeBuildInputs = [ pkgs.pkg-config qtJoined ];
+          buildInputs = [ qtJoined ] ++ (with pkgs.qt6; [ qtbase qtdeclarative ]);
+          QMAKE = "${qtJoined}/bin/qmake6";
+          QT_INSTALL_HEADERS = "${qtJoined}/include";
+          QT_INSTALL_LIBS = "${qtJoined}/lib";
+          # Rice needs C++17 or newer; the gem appends its own -std=c++17
+          # after this, so this only raises the floor if the gem ever stops.
+          RUBYQT6_CXXFLAGS = "-std=c++20";
+          # These gems build no application, so Qt's wrapper hook has nothing
+          # to wrap and errors out looking for one.
+          dontWrapQtApps = true;
+        };
 
         # The reverse-DNS application ID, which is also the basename of every
         # file in data/ that a desktop installs under that name.
@@ -228,7 +320,54 @@
           };
         };
 
+        # The Qt frontend, upstream's `go build ./qt`. It is a separate output
+        # and not a second binary inside packages.default for the same reason
+        # it has its own Gemfile: nothing in the GTK app loads Qt, and
+        # upstream's Flatpak likewise builds the root package only and ships
+        # no Qt binary.
+        #
+        # It installs lib/ and data/ and nothing else — no schema, no
+        # catalogues, no desktop entry, no icons: qt/main.go reads no
+        # GSettings, binds no gettext domain and registers no application ID,
+        # so there is nothing for a desktop to install on its behalf yet.
+        packages.qt = pkgs.stdenv.mkDerivation {
+          pname = "sessions-qt";
+          version = "0.1.0";
+          src = ./.;
+
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          buildInputs = [ qtGems ] ++ qmlStack;
+
+          dontBuild = true;
+
+          installPhase = ''
+            runHook preInstall
+
+            mkdir -p $out/share/sessions-qt
+            cp -r lib data $out/share/sessions-qt/
+            install -Dm755 exe/${qtLauncher} \
+              $out/share/sessions-qt/exe/${qtLauncher}
+
+            makeWrapper ${qtGems.wrappedRuby}/bin/ruby $out/bin/${qtLauncher} \
+              --add-flags "-rbundler/setup" \
+              --add-flags "-I$out/share/sessions-qt/lib" \
+              --add-flags "$out/share/sessions-qt/exe/${qtLauncher}" \
+              --set QML_IMPORT_PATH "${qmlImportPath}" \
+              --set QML2_IMPORT_PATH "${qmlImportPath}" \
+              --set QT_PLUGIN_PATH "${qtPluginPath}"
+
+            runHook postInstall
+          '';
+
+          meta = {
+            description = "The Qt Quick / Kirigami frontend of the Ruby port of sessions";
+            mainProgram = qtLauncher;
+            platforms = pkgs.lib.platforms.linux;
+          };
+        };
+
         apps.default = utils.lib.mkApp { drv = self.packages.${system}.default; };
+        apps.qt = utils.lib.mkApp { drv = self.packages.${system}.qt; };
 
         devShells.default = pkgs.mkShell {
           name = "sessions-devshell";
@@ -253,7 +392,11 @@
             # `bundle exec rspec` reports "command not found"; this is the
             # binary the banner names.
             pkgs.rubyPackages_3_4.rspec
-          ] ++ gtkStack ++ gstStack;
+            # The Qt frontend's gems and the QML modules data/qt/main.qml
+            # imports, so `ruby exe/sessions-qt` and test/drive_qt.rb work
+            # from a checkout the same way the GTK half does.
+            qtGems
+          ] ++ gtkStack ++ gstStack ++ qmlStack;
 
           # Icons, GSettings schemas and the GTK portal all resolve through
           # XDG_DATA_DIRS; without these the window opens with blank icons.
@@ -273,6 +416,16 @@
             # gem directory restores it for plain `ruby` as well as `bundle
             # exec`.
             export GEM_PATH="${gems}/${pkgs.ruby_3_4.gemPath}''${GEM_PATH:+:$GEM_PATH}"
+
+            # The Qt frontend's bundle, appended rather than prepended: both
+            # bundles carry glib2, pinned to one version in both lockfiles, and
+            # the GTK one stays the first answer for every gem they share.
+            export GEM_PATH="''${GEM_PATH}:${qtGems}/${pkgs.ruby_3_4.gemPath}"
+
+            # data/qt/main.qml's imports and Qt's own platform plugin.
+            export QML_IMPORT_PATH="${qmlImportPath}''${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
+            export QML2_IMPORT_PATH="$QML_IMPORT_PATH"
+            export QT_PLUGIN_PATH="${qtPluginPath}''${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
 
             export GST_PLUGIN_SYSTEM_PATH_1_0="${gstPluginPath}''${GST_PLUGIN_SYSTEM_PATH_1_0:+:$GST_PLUGIN_SYSTEM_PATH_1_0}"
 
@@ -294,6 +447,7 @@
 
             echo "sessions devshell — ruby $(ruby -e 'print RUBY_VERSION')"
             echo "run the app:     xvfb-run -a ruby exe/sessions"
+            echo "the Qt frontend: xvfb-run -a ruby exe/sessions-qt"
             echo "run the specs:   rake spec          (75 examples, no display needed)"
             echo "drive every UI:  rake drive         (three drivers under Xvfb, shots in tmp/shots/)"
             echo "  one at a time: rake drive:main_window | drive:translations | drive:high_contrast"

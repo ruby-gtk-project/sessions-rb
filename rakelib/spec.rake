@@ -18,6 +18,7 @@ DRIVERS = {
   main_window:   "test/drive_main_window.rb",
   translations:  "test/drive_translations.rb",
   high_contrast: "test/drive_high_contrast.rb",
+  qt:            "test/drive_qt.rb",
 }.freeze
 
 # Every driver needs a display and a compiled schema: `require "gtk4"` raises
@@ -56,8 +57,13 @@ end
 
 # The German driver also asserts the eleven msgids that live in data/ rather
 # than in Ruby, so the merge that produces them has to have run.
+#
+# The Qt driver needs neither: qt/main.go reads no GSettings and binds no
+# gettext domain, so there is no schema and no catalogue on its path, and
+# `schema:compile` as a prerequisite would only hide that.
 DRIVER_PREREQUISITES = {
   translations: ["schema:compile", "gettext:data"],
+  qt:           [],
 }.freeze
 
 namespace :drive do

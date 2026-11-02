@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "sessions/qt"
+
+# qt/main.go binds no gettext domain and qt/main.qml holds no translatable
+# string, so there is no Translations.install here — the line exe/sessions
+# carries has nothing to do on this side yet.
+Sessions::QtApplication.new.build.exec

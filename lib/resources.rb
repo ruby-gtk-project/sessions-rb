@@ -54,6 +54,13 @@ module Resources
   METAINFO_PATH = File.join(DATA_DIR, "#{APP_ID}.metainfo.xml")
   METAINFO_TEMPLATE_PATH = "#{METAINFO_PATH}.in"
 
+  # The Qt frontend's QML document. Upstream's qt/main.go resolves it as
+  # `filepath.Join("qt", "main.qml")`, which only finds the file when the
+  # process was started from the repository root; here it keeps upstream's
+  # `qt/main.qml` layout under `data/`, where every other file upstream reads
+  # out of its GResource bundle lives, and so resolves from any directory.
+  QML_MAIN_PATH = File.join(DATA_DIR, 'qt', 'main.qml')
+
   # main.go declares `LocaleDir` and `SchemaDir` as package variables so the
   # Flatpak build can point them at /app/share with a linker flag. Ruby has no
   # link step, so the same two overrides are environment variables, set by the
