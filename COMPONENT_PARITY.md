@@ -50,7 +50,7 @@ them.
 | The six accelerators, resolvable in both directions | `application.go`, `main_window.go` | `lib/application.rb`, `lib/main_window.rb` | drive step 30 |
 | The About dialog's description is one language, not every catalogue at once | `adw_about_dialog_new_from_appdata` | `lib/metainfo.rb#untranslated` | drive step 41 — the defect the first run of round five found |
 | The shortcuts dialog's no-results state | libadwaita's own | `lib/shortcuts_dialog.rb` | drive steps 36-39, `tmp/shots/11-shortcuts-no-results.png` |
-| `gtk4` / `adwaita` / `gettext` / `rexml` are runtime dependencies | n/a | `sessions-rb.gemspec:115-123` | `bundle check` |
+| `gtk4` / `adwaita` / `gettext` / `rexml` are runtime dependencies | `go.mod`, `go.sum` | `sessions-rb.gemspec:115-123`, `nix/Gemfile` | `bundle check`; `nix develop --command rake spec` resolves them |
 | Desktop entry, metainfo, icons, schema and catalogues are installed | Flatpak manifest build-commands | `rake install_data`, `flake.nix` `installPhase` | source |
 | The AGPL-3.0 text ships with the program, as the licence it declares | `LICENSE` | `LICENSE.md` | `Gem::Specification.load("sessions-rb.gemspec").files` lists it; `md5sum` matches upstream's `LICENSE` |
 
@@ -74,11 +74,13 @@ shipping the frontend. The heading is gone from
 `.reports/component-inventory.md`.
 Upstream: `qt/main.go`, `qt/main.qml`.
 Port: nothing.
-Owner: **unassigned**. This row stays open until somebody takes it or upstream
-drops the frontend.
-Why it is hard: a QML frontend in Ruby means a second toolkit and a binding set
-(`qml-ruby`, `ruby-qml`) that is not in this flake and not maintained against
-Qt 6.
+Owner: **unassigned**. This row closes when a Plasma user can run this port.
+Nothing else closes it — the previous wording let it close "or upstream drops
+the frontend", which is a status field pretending to be an exit.
+What is in the way (not a reason to stop): a QML frontend in Ruby needs a
+binding set that is in neither this flake nor maintenance against Qt 6
+(`qml-ruby`, `ruby-qml`). Over 98 lines of upstream, driving a state machine
+`lib/state_machine.rb` already implements.
 
 ### I have not written a Flatpak manifest
 
@@ -93,10 +95,15 @@ could not build or test a manifest in this environment and a manifest that
 does not build is indistinguishable from one nobody has tried.
 Upstream: `com.pojtinger.felicitas.Sessions.json`.
 Port: nothing.
-Why it is hard: there is no `org.freedesktop.Sdk.Extension.ruby`, so a Ruby
-manifest has to build Ruby and eight ruby-gnome C extensions from pinned
-sources inside the manifest; none of those sha256s can be computed without
-running the build.
+Owner: **unassigned**. This row closes when `flatpak install` gets somebody
+this app. Two of upstream's finish-args are load-bearing and have to survive
+into whatever closes it: `--socket=pulseaudio`, without which `lib/alarm.rb` is
+silent, and the portal access `lib/background_portal.rb` exists for.
+What is in the way (not a reason to stop): there is no
+`org.freedesktop.Sdk.Extension.ruby`, so a Ruby manifest has to build Ruby and
+eight ruby-gnome C extensions from pinned sources inside the manifest, and none
+of those sha256s can be computed without running a build this environment
+cannot run.
 
 ### Closed: the four About-dialog link rows are deleted
 

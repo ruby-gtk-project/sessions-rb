@@ -78,7 +78,7 @@ and aborts without a display (`FINDINGS.md`).
 
 ## Open
 
-### The widget layer has drivers, not a spec suite
+### I have not written a spec suite for the widget layer, only drivers
 
 `test/drive_main_window.rb` fires every action and both dial gestures and
 asserts 173 things about the result; `test/drive_high_contrast.rb` adds 21 under

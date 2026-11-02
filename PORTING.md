@@ -49,10 +49,10 @@ Components implemented and believed complete. One upstream source file, one
 | `lib/about_dialog.rb` | `internal/components/application.go:76-92` |
 | `lib/metainfo.rb` | `assets/resources/metainfo.xml.in` |
 | `lib/state_machine.rb` | `pkg/state/machine.go`, `pkg/state/constants.go` |
-| `lib/ticker.rb` | no upstream file — the seam that replaces `testing/synctest` |
+| `lib/ticker.rb` | `pkg/state/machine.go`'s inline `time.Ticker` — extracted into a collaborator so `testing/synctest`'s fake clock has a counterpart |
 | `lib/style.rb` | `assets/resources/style.css` (heredoc is byte-identical) |
 | `spec/state_machine_spec.rb`, `spec/support/manual_ticker.rb` | `pkg/state/machine_test.go` |
-| `spec/metainfo_spec.rb`, `spec/settings_spec.rb` | no upstream file — the port's own display-free classes |
+| `spec/metainfo_spec.rb`, `spec/settings_spec.rb` | nothing upstream: `metainfo.xml.in` is read by libadwaita there and by Ruby here, and `main.go:43-58` is untested upstream |
 | `rakelib/spec.rake`, `bin/rspec`, `bin/rake` | `go test ./pkg/state/`, as a runner the repo owns |
 | `.github/workflows/ci.yaml` | `.github/workflows` (the test half; the Flatpak half is still owed) |
 | `rakelib/gettext.rake` | `po/index.go` (the `go:generate` lines) |
@@ -98,22 +98,24 @@ Nothing here has an owner. A row closes when the behaviour is in the port.
 ## Open gaps
 
 The last accountability audit (`.reports/accountability-ensurance.md`) reported
-**10 hits** and `clean=false`. All ten are in the ledgers, not in `lib/` or
+**10 hits** and `clean=false`. All ten were in the ledgers, not in `lib/` or
 `exe/` — those two trees scan clean for deferral markers. The pattern it names:
 a true sentence about why work is hard, placed where the reader looks for
-whether the work is owed. Five of the ten are sentences that belong in
-`FINDINGS.md`.
+whether the work is owed.
 
-The ten, owed as rewrites in place (delete none):
+All ten are rewritten as of this round, and the audit's own eight "rewrites
+owed" with them; the list is kept rather than deleted so that the next reader
+can check the rewrites instead of trusting that they happened. Each entry now
+says what it said and what it says instead:
 
-1. `COMPONENT_PARITY.md:65,82,96` — three gap entries carry a `Why it is hard:` line inside the gap itself.
-2. `COMPONENT_PARITY.md:85-87` — the Flatpak gap's "because" slot is filled with an environment constraint instead of the admission.
-3. `COMPONENT_PARITY.md:63-64` — "or upstream drops the frontend" lets the Qt row close with nothing built; `Owner:` is a status field.
-4. `COMPONENT_PARITY.md:103-105` — "nothing user-visible depends on this" plus "I am not planning to add a bundle"; this paragraph is what the About-dialog gap leans on.
-5. `COMPONENT_PARITY.md:43` — a literal `n/a` in the Upstream column; the counterpart is `go.mod` / `go.sum`.
+1. `COMPONENT_PARITY.md` — three gap entries carried a `Why it is hard:` line inside the gap. The phrase is gone from the file: the Qt and Flatpak rows say "What is in the way (not a reason to stop)" and the About-dialog row is closed outright.
+2. The Flatpak gap's "because" slot held an environment constraint instead of the admission. It now opens with "I have not written a Flatpak manifest", carries an `Owner:` that closes only when `flatpak install` gets somebody the app, and names the two load-bearing finish-args (`--socket=pulseaudio` for the alarm, portal access for `lib/background_portal.rb`).
+3. The Qt row could close "or upstream drops the frontend". It now closes only when a Plasma user can run this port, and its real size — 46 + 52 lines, not 87 + 121 — is in the entry.
+4. The GResource entry said "nothing user-visible depends on this" and "I am not planning to add a bundle", and the About-dialog gap leaned on it. The About-dialog gap is closed and the entry now says what the missing bundle actually costs: the appdata constructor takes a resource path, which is why `lib/metainfo.rb` exists.
+5. `COMPONENT_PARITY.md` carried a literal `n/a` in the Upstream column. It names `go.mod` / `go.sum` now: an `n/a` in a parity table claims upstream has nothing there, and upstream pins its dependencies in two files. The two "no upstream file" slots in the **Done** table above are named too.
 6. `TEST_PARITY.md:8` — the green was real but unreachable. 45 examples did run, under `rspec --options /dev/null --require spec_helper --format progress spec`; what failed was every documented spelling, because `.rspec` ended in `--format RspecJunitFormatter` and that gem is not in the dev shell's `GEM_PATH`. Restating it as "zero examples have been executed" was wrong in the other direction. Fixed this round: the two formatter lines are out of `.rspec`, `bin/rspec` exists, and `rake spec`, `rspec spec` and `bin/rspec spec` all run the suite — 75 examples, 0 failures.
-7. `TEST_PARITY.md:54,69,84` — neutral noun-phrase headings where the other ledgers write first person.
-8. `TEST_PARITY.md:73-74` — "so this is not a parity gap against upstream" leads a gap entry with a reason to stop reading.
+7. `TEST_PARITY.md` had neutral noun-phrase headings where the other ledgers write first person. The one open entry there now reads "I have not written a spec suite for the widget layer, only drivers"; the other two are closed.
+8. "so this is not a parity gap against upstream" led a gap entry with a reason to stop reading. The entry now says that recording it does not make it smaller, and counts what the drivers actually are: 245 checks a human has to read the output of.
 9. `PORTING.md:29` (the previous revision) — "or a decision not to ship one" pre-authorised skipping the Flatpak manifest in the first file a new agent reads.
 10. `PORTING.md:18-21` (the previous revision) — the cursor table repeated the false green and claimed "all GTK components ported and observed", which the dial's two high-contrast gaps contradict.
 
@@ -194,9 +196,13 @@ difficulty; none of them closes a gap row.
 - **`Adwaita::Application` and `Adwaita::ApplicationWindow` are partly broken**
   in the Ruby bindings, so the app object stays `Gtk::Application` with
   `Adwaita.init`.
-- **`adw_about_dialog_new_from_appdata` has no Ruby equivalent.** About-dialog
-  fields are filled from the metainfo values by hand via `lib/metainfo.rb`;
-  release notes are transcribed rather than read by libadwaita.
+- **`adw_about_dialog_new_from_appdata` is not in the Ruby bindings, and it
+  takes a GResource path the port has no bundle for.** The nine properties it
+  sets are set one at a time from `lib/metainfo.rb`, which parses the same
+  AppStream component out of `data/`. The release notes are read out of that
+  file too, not transcribed. What this costs is listed as an extra in
+  `COMPONENT_PARITY.md`: the port also sets `comments`, which the constructor
+  does not, so this dialog shows a description where upstream's shows none.
 - **The catalogues are not wired into the *gem* build.** This was written as
   "no gettext wiring in the port's build", with "translation parity is a
   separate unit, not part of the component port" after it. Both halves were

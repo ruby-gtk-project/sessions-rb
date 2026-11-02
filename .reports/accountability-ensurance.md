@@ -279,6 +279,14 @@ Two smaller instances of the same shape, recorded rather than ranked:
 
 ## Rewrites owed
 
+**All eight were applied in the round after this report was written, each
+restated from a check run against the tree rather than from a previous round.
+`PORTING.md`'s "Open gaps" section lists what each claim says now, so the
+rewrites can be checked rather than taken on trust. The two source-level ones —
+the libadwaita premise in `lib/about_dialog.rb` and the four `add_link` rows it
+justified — were deleted rather than reworded, and `po/sessions.pot` is back to
+upstream's 33 msgids.** The list below is left as the audit found it.
+
 In the order they do damage.
 
 1. `lib/about_dialog.rb:25-34` — the libadwaita premise. It is false and it is in source.
