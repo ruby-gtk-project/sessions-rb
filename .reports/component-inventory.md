@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Upstream | `origin/main` @ `ad77fb2` (2026-07-17), Go + puregotk over GTK4/libadwaita |
-| Port | `ruby`, 19 files / 2216 lines under `lib/` |
+| Port | `ruby`, 19 files / 2329 lines under `lib/` |
 | Identified with | `.claude/skills/component-identification`, `scripts/component-scan.sh` on both sides, then every file read |
 
 Upstream keeps its widget trees in blueprint (`.blp`) compiled into a GResource
@@ -63,7 +63,7 @@ GTK type.
 | `assets/resources/index.go` | `lib/resources.rb` | constants | yes |
 | `main.go:19-35` (gettext init) | `lib/translations.rb` | i18n | yes |
 | `main.go` `main()` | `exe/sessions` + `lib/sessions.rb` | entry point | yes |
-| `po/*.po`, `po/sessions.pot` | `po/` (26 catalogues, 38 messages) | catalogues | yes |
+| `po/*.po`, `po/sessions.pot` | `po/` (26 catalogues, 33 messages) | catalogues | yes |
 | `assets/meta/*.desktop.in`, `metainfo.xml.in`, `icon*.svg`, `index.gschema.xml` | `data/` (not `lib/`) | packaging data | yes |
 | `qt/main.go` + `qt/main.qml` (Kirigami frontend) | — | second frontend | **no** |
 | `com.pojtinger.felicitas.Sessions.json`, `.github/workflows/flatpak.yaml` | — | Flatpak manifest | **no** |
@@ -286,7 +286,7 @@ copyright, resource paths and the `last-position` key name.
 
 ## po/ — translation catalogues
 
-→ `po/` (**exists**: 26 `.po` files, `sessions.pot` with 38 messages)
+→ `po/` (**exists**: 26 `.po` files, `sessions.pot` with 33 messages)
 
 bn, ca, cs, de, en_GB, en_US, es, et, fi, fr, fr_CA, hi, hr, hu, ia, oc, pl, pt,
 pt_BR, ru, sv, tr, uk, vi, zh_Hans, zh_Hant. Every user-visible string above is
@@ -319,14 +319,17 @@ Two components upstream ships and the port does not. Both are open rows in
 shipping them.
 
 1. **The Qt/QML frontend is not ported.** `qt/main.go` (46 lines) and
-   `qt/main.qml` (52 lines) — counted with `wc -l` this round, against the 87
-   and 121 this file claimed for five rounds — are a Kirigami frontend of this
-   same app:
-   `Kirigami.ApplicationWindow` 360×360, a `ColumnLayout` with
-   `analogTimeLabel`, `minusButton`, `actionButton`, `plusButton`. A user who
-   runs upstream's Qt build gets a working timer; a user of this port has no
-   such option. Porting it means a second toolkit and a binding set (qml-ruby or
-   ruby-qml) that is not in this flake. Unassigned.
+   `qt/main.qml` (52 lines), both counted with `wc -l` against `origin/main`
+   this round, are a Kirigami *skeleton* of this same app:
+   `Kirigami.ApplicationWindow` 360×360, a `ColumnLayout` with a static
+   `analogTimeLabel` reading "05:00" and `minusButton` / `actionButton` /
+   `plusButton`. Read, it does nothing: no QML binding touches the label, no
+   button declares `onClicked`, nothing is exposed to QML from Go, and
+   `qt/main.go` builds `state.NewStateMachine` with all seven hooks returning
+   `nil`. It is a layout sketch, not a second working frontend, so the gap it
+   leaves is four untranslated controls that respond to nothing. Porting it means
+   a second toolkit and a binding set (qml-ruby or ruby-qml) that is not in this
+   flake. Unassigned, and the lowest-value row in this file.
 
 2. **No Flatpak manifest.** Upstream's `com.pojtinger.felicitas.Sessions.json`
    builds Go with `org.freedesktop.Sdk.Extension.golang`; there is no equivalent
