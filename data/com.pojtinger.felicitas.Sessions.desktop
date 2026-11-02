@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Sessions
+Comment=Focus with timed work intervals
+Exec=sessions
+Icon=com.pojtinger.felicitas.Sessions
+Categories=Office;Utility;
+# Extra keywords that can be used to search for Sessions
+# TRANSLATORS: Search terms to find this application.
+#              Do NOT translate or localize the semicolons!
+#              The list MUST also end with a semicolon!
+Keywords=pomodoro;timer;productivity;focus;work intervals;task management;
