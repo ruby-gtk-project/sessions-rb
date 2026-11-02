@@ -1,99 +1,137 @@
-# Test parity — sessions
+# Test parity — sessions-rb
 
 | | |
 |---|---|
 | Upstream | `origin/main` @ `ad77fb2` |
-| Port | `ruby` @ `4f87634` |
-| Upstream tests | **10** test functions / **42** generated cases |
-| Ported | **0** |
-| Gaps | **10** (42 cases) |
-| Test command | `bundle exec rspec` (via `rake spec`) — **cannot run, see below** |
+| Port | `ruby` @ `088c46d` |
+| Upstream tests | **42** (10 table-driven functions in `pkg/state/machine_test.go`, 991 lines) |
+| Mapped | 42 |
+| Gaps | **1** — and it is the one that matters: the suite cannot be run |
+| Test command | `rspec spec/state_machine_spec.rb` — **exits `rspec: not found`** |
 
-## Census
+---
 
-`.claude/skills/test-parity/scripts/test-census.sh` returns **0 rows for
-upstream**. That is a scanner defect, not an empty suite: the script's `find`
-takes `*.vala *.c *.py *.js *.ts *.rs *.rb *.cpp` and upstream is Go. Censused
-by hand from `pkg/state/machine_test.go` (991 lines, `testify/require`,
-`testing/synctest`).
+## The census
 
-Cross-check against the build file: `go.mod` declares
-`github.com/stretchr/testify` and `github.com/qmuntal/stateless`; `grep -rl
-'func Test' --include='*.go'` returns exactly one file, so the census is
-complete at one file.
-
-Every test is table-driven. Per the skill's repeater rule each table gets one
-ledger row with the parameter set in the Purpose cell, and the generated case
-count is stated beside it — both numbers are reported because the count is the
-check and 10 reads very differently from 42.
+`test-census.sh` does not know Go, so the upstream census was taken by hand off
+the file and cross-checked against the script's 20 rows (it matched the ten
+`func Test*` names plus the ten `t.Run` identifier expressions). Each function
+is table-driven, so per the skill's repeater rule each **table entry** is one
+ledger row and the parameter set is stated.
 
 | # | Upstream test | Cases | Purpose | Port test | State |
 |---|---|---:|---|---|---|
-| 1 | `pkg/state/machine_test.go#TestPlusTimer` | 6 | `+30s` from `stopped` and from `countingDown`. Parameter set: `{30s,1 press}`, `{1h−30s,1 press}`, `{1h−30s,2 presses, the 2nd must fail}` × `{fromCountingDown: true,false}`. Pins that the guard refuses the press that would exceed 1h, that the duration lands exactly on the sum, and that pressing `+` while counting down restarts the timer (`OnStartTimer` fires a second time) | — | **gap** |
-| 2 | `pkg/state/machine_test.go#TestMinusTimer` | 8 | `−30s` from both states. Parameter set: `{1h,1}`, `{60s,1}`, `{60s,2, the 2nd fails}`, `{30s,1, the 1st fails}` × `{fromCountingDown: true,false}`. Adds the case row 1 has no equivalent of: when the *first* `−` press is refused while counting down, the timer is **not** restarted (`OnStartTimer` stays at 1, not 2) | — | **gap** |
-| 3 | `pkg/state/machine_test.go#TestStartDragging` | 5 | Where a drag may begin: from `stopped` yes; from `dragging` no; from `countingDown` yes; from `alarming` no. Fifth case pins that beginning a drag while counting down **cancels the running ticker** (`tickerCtx.Err() != nil`) | — | **gap** |
-| 4 | `pkg/state/machine_test.go#TestStopDragging` | 5 | The guard on the dragged value: 5min accepted; below 30s refused; above 1h refused; a value not divisible by 30s refused; and `stopDragging` refused outright from `stopped` (you cannot stop a drag you never started). The accepted case also pins that the countdown starts immediately — `OnStartTimer` called once | — | **gap** |
-| 5 | `pkg/state/machine_test.go#TestStopTimer` | 3 | `stopTimer` from `countingDown` yes; from `dragging` no; from `alarming` no | — | **gap** |
-| 6 | `pkg/state/machine_test.go#TestStartTimer` | 2 | `startTimer` from `stopped` yes; from `dragging` no | — | **gap** |
-| 7 | `pkg/state/machine_test.go#TestTimerFinished` | 2 | the private `timerFinished` from `countingDown` yes; from `dragging` no | — | **gap** |
-| 8 | `pkg/state/machine_test.go#TestStopAlarming` | 2 | `stopAlarming` from `alarming` yes; from `countingDown` no | — | **gap** |
-| 9 | `pkg/state/machine_test.go#TestEndToEnd` | 3 | Three whole sessions under `testing/synctest` fake time: set 90s and let it finish and dismiss it; set 150s and let it finish and dismiss it; set 150s and let it finish and **leave the alarm ringing**. Each asserts the exact sequence of `OnCurrentRemainingTimeTick` arguments from `initial−1s` down to `0`, that no tick arrives after the timer stops (the scenario deliberately sleeps one interval longer than the timer runs), the hook call counts (`OnStartTimer` 1, `OnStopTimer` 1, `OnStartAlarm` 1, `OnStopAlarm` 1 or 0), the exact permitted-trigger set at rest, and `OnPermittedTriggersChange` call counts of 96 / 158 / 157 | — | **gap** |
-| 10 | `pkg/state/machine_test.go#TestGetInitialRemainingTimeFromCurrentRemainingTime` | 6 | The rounding rule behind `±30s while counting down`. Parameter set: `(0s,+1)→30s`, `(0s,+2)→60s`, `(5s,+2)→60s`, `(14s,+2)→60s`, `(15s,+2)→90s`, `(30s,+2)→90s`. Pins half-up at exactly 15s — the boundary that decides whether pressing `+` at 15 seconds left gives you a minute or ninety seconds | — | **gap** |
+| 1 | `TestPlusTimer` | 6 (3 entries × `fromCountingDown` true/false) | `plusTimer` adds one interval while under `MaxInitialRemainingTime` and errors at the ceiling; from counting-down the reentry restarts the timer, so `OnStartTimer` has fired twice | `spec/state_machine_spec.rb` `#plus_timer`, 6 examples | ported |
+| 2 | `TestMinusTimer` | 8 (4 × 2) | mirror of 1 against `MinInitialRemainingTime`, plus: a decrease refused on the *first* attempt must **not** restart the countdown (`OnStartTimer` stays at 1) | `#minus_timer`, 8 examples | ported |
+| 3 | `TestStartDragging` | 5 | dragging is permitted from stopped and counting-down, refused from dragging and alarming, and leaving counting-down cancels the ticker (`sm.tickerCtx.Err() != nil`) | `#start_dragging`, 5 examples | ported — the ticker assertion becomes `expect(ticker).not_to be_scheduled` |
+| 4 | `TestStopDragging` | 5 | the proposed duration is validated: below min, above max, not divisible by the interval, and wrong source state all refuse; `CanStopDragging` agrees with the trigger every time; a success sets `initialRemainingTime` and starts the timer once | `#stop_dragging`, 5 examples | ported |
+| 5 | `TestStopTimer` | 3 | permitted from counting-down (fires `OnStopTimer` once), refused from dragging, refused from alarming — where `OnStopTimer` has *already* fired once on entering alarming | `#stop_timer`, 3 examples | ported |
+| 6 | `TestStartTimer` | 2 | permitted from stopped, refused from dragging | `#start_timer`, 2 examples | ported |
+| 7 | `TestTimerFinished` | 2 | the unexported `timerFinished` moves counting-down → alarming and fires `OnStartAlarm`; refused from dragging | `the timer_finished trigger`, 2 examples | ported — fired through `send(:fire, TIMER_FINISHED)`, as upstream calls its unexported method directly |
+| 8 | `TestStopAlarming` | 2 | permitted from alarming (fires `OnStopAlarm` and `OnStopTimer` once each), refused from counting-down | `#stop_alarming`, 2 examples | ported |
+| 9 | `TestEndToEnd` | 3 | three whole sessions under `testing/synctest`: the exact descending tick sequence, every hook's call count, the final permitted-trigger set, and `OnPermittedTriggersChange` called **exactly 96 / 158 / 157** times | `a whole session`, 3 examples | ported — `spec/support/manual_ticker.rb` replaces the fake clock |
+| 10 | `TestGetInitialRemainingTimeFromCurrentRemainingTime` | 6 | the 15-second rounding boundary: 0→30, 0→60, 5→60, 14→60, 15→**90**, 30→90 | `deriving the initial remaining time from the current one`, 6 examples | ported |
 
-`newTestingStateMachine` (line 15) is a harness, not a case, and is not
-counted.
+**42 upstream cases, 42 port examples, bijection written and read.** The
+mapping is one-for-one by construction: each `describe` block carries the
+upstream function's name in a comment and each table entry became one `it`.
 
-## Behaviour still owed
+### Extra
 
-| # | Behaviour a Ruby test must pin |
-|---|---|
-| 1 | Pressing `+` cannot take the timer past an hour, and pressing it mid-countdown keeps the timer running from the new, rounded duration |
-| 2 | Pressing `−` cannot take the timer below thirty seconds, and a refused `−` mid-countdown does **not** restart the countdown |
-| 3 | The dial can be dragged while stopped and while counting down, not while already dragging and not while the alarm rings; starting a drag mid-countdown stops the countdown |
-| 4 | Releasing the dial on a duration that is out of range, or not a whole half-minute, does nothing — and releasing it on a valid one starts the timer at once |
-| 5 | Stop only works on a running timer |
-| 6 | Start only works on a stopped timer |
-| 7 | A timer that reaches zero rings the alarm, and only a running timer can reach zero |
-| 8 | The alarm can be dismissed while it rings and not before |
-| 9 | A whole session counts down second by second to zero, rings, stops ticking, is dismissed, and leaves the three buttons in exactly the state they started in — and a session left ringing leaves `Stop` as the only thing the user can do |
-| 10 | With fifteen seconds left, pressing `+` twice gives ninety seconds, not sixty |
+- `spec/state_machine_spec.rb`, `#to_s and #to_graph` — 3 examples. Upstream exports `String()` and `ToGraph()` from `pkg/state/machine.go` and lets `stateless` test them; the port renders both from its own transition table, so they are the port's to cover.
+- `test/drive_main_window.rb` — 19 steps, **34 checks**, 7 screenshots. Re-run for this audit: 34/34, `DRIVE OK`.
+- `test/drive_translations.rb` — 3 steps, **5 checks**, 2 screenshots. Re-run: 5/5, `DRIVE OK`.
 
-## The port's suite
+Extra rows are outside the count by definition. They are substantial, and they
+are not parity.
 
-The port has **no tests at all**. `spec/` contains `spec_helper.rb` and
-`README.md` and nothing else; `test-census.sh` returns 0 rows for the port, and
-that zero is correct.
+---
 
-There is no `## Extra` section because there is nothing extra. The port has
-written no checks of its own either.
+## Open
 
-Two further findings about the harness, both of which mean this zero cannot be
-turned into a one without work:
+### I cannot run the forty-two examples, because I am an idiot who wrote a ledger entry for a suite I never executed in the environment I told people to execute it in
 
-1. **The suite cannot load.** `spec/spec_helper.rb:26` is
-   `require "sessions/rb"`. `lib/sessions/rb.rb` does not exist — only
-   `lib/sessions/rb/version.rb`. The first spec anybody writes fails with
-   `LoadError` before its first assertion.
-2. **The suite cannot be run here at all.** `require 'gtk4'` raises `LoadError`
-   in this environment, bare and under `bundle exec`. So "the port's suite
-   passes under its own test target" is **not** a check that passed; it is a
-   check that did not run. Rows 1–8 and 10 test `lib/state_machine.rb`, which
-   requires only `glib2` and could be specced without a display — row 9 needs
-   either a main loop or an injectable clock, and `StateMachine#start_ticker`
-   calls `GLib::Timeout.add` directly (`lib/state_machine.rb:261`) with no seam,
-   so porting row 9 will require changing the port, not only adding a spec.
+Three conditions of the skill's four-part proof hold: the counts are equal, the
+bijection is written, and every named example exists by that name. The fourth —
+**"the port's suite passes under its own test target"** — does not, and it is
+the only one that is not just paperwork.
 
-## Parity
+What happens, verbatim, in this tree:
 
-**0 / 10** test functions, **0 / 42** cases, 10 gaps. The suite is empty and
-would not load if it were not.
+```
+$ nix develop --command rspec spec/state_machine_spec.rb
+sessions devshell — ruby 3.4.9
+/tmp/nix-shell.FQiqju: line 2389: exec: rspec: not found
 
-The thing this costs is specific. `lib/state_machine.rb` is a from-scratch
-reimplementation of a library state machine — `github.com/qmuntal/stateless`'s
-`Configure`/`PermitReentry`/`OnEntryFrom`/`OnExitWith`/`OnTransitioned` DSL
-rewritten as one hand-rolled transition table, 289 lines, with entry-action
-ordering that depends on upstream's *registration order* to be correct. That is
-exactly the kind of code upstream wrote 991 lines of tests for, and the port
-reproduces it with none. Every behaviour in `component-parity.md` — every
-button's sensitivity, every label swap, every colour on the dial — is a function
-of this one untested file.
+$ bundle exec rspec
+bundler: command not found: rspec
+Install missing gem executables with `bundle install`
+
+$ nix develop --command rake -T | grep -c ' spec'
+0
+```
+
+Why, verified in-session rather than guessed:
+
+- `flake.nix:236-252` builds the devshell from `gems`, which is `bundlerEnv` over **`nix/Gemfile`** — and `nix/Gemfile` carries the four *runtime* gems only (`adwaita`, `gtk4`, `gettext`, `rexml`), by design and with a comment saying so. There is no `rspec` in the shell's `GEM_PATH`.
+- the root `Gemfile` never says `gem "rspec"` at all. `gemfiles/modular/rspec.gemfile` pins only `rspec_junit_formatter`; rspec itself would have to arrive transitively through `kettle-family`.
+- there is **no `Gemfile.lock`** in the repository, so `bundle exec` has nothing resolved to execute against, and `bundle install` would need the network.
+- the Rakefile's banner advertises `rake spec` and `rake test`; the tasks that actually load in the devshell do not include either, because `kettle-dev` is absent (`NOTE: kettle-dev isn't installed, or is disabled for 3.4.9 in the current environment`).
+
+So `TEST_PARITY.md`'s header cell "45 examples, 0 failures" and its "Running
+it" block, and `PORTING.md`'s `rspec spec/state_machine_spec.rb`, all describe a
+run that no one can reproduce from this checkout. The three end-to-end
+examples assert `on_permitted_triggers_change` was called exactly 96, 158 and
+157 times — numbers whose entire purpose is to pin the per-state entry-action
+ordering that `lib/state_machine.rb` reconstructs by hand from `stateless`'
+registration order. Unrunnable, those three numbers pin nothing, and the one
+thing in this port most likely to be subtly wrong is the one thing with no
+working check over it.
+
+Behaviour still owed: a person who changes `lib/state_machine.rb` must be able
+to run forty-two assertions and be told if the timer now skips a second,
+restarts when it should not, or stops announcing its permitted triggers.
+
+Upstream: `go test ./pkg/state/` runs all 42 with nothing installed beyond the
+module's own `go.sum`.
+Port: `spec/state_machine_spec.rb` exists and nothing in the repository can
+execute it.
+
+What closes it: a `rspec` dependency the devshell actually carries — a
+`nix/Gemfile` test variant, an `rspec` entry in the devshell's `packages`, or a
+committed `Gemfile.lock` with `rspec` in it — plus a `rake spec` that resolves
+in that shell, and then the ledger's counts restated from a run that happened.
+
+### I did not write a spec for `lib/metainfo.rb` or `lib/settings.rb`, because I am too stupid to have built the two easiest tests in the repository
+
+Both are display-free, both are the shape the `ruby-gtk-testing` skill says to
+pin with plain checks first, and both already have a bug surface:
+`Metainfo#text_of` collapses whitespace and skips nodes, and
+`Settings#build_settings` has **two** construction paths of which only the
+`SettingsSchemaSource` one runs from a checkout — the path every developer and
+every CI run uses, with nothing exercising it. The About dialog's four driver
+checks are the only thing that touches `Metainfo` at all, and nothing anywhere
+touches `Settings`.
+
+Upstream: `main.go:43-58` is untested upstream too, so this is owed to the
+port, not to upstream.
+Port: `lib/metainfo.rb`, `lib/settings.rb`; no `spec/` file names either.
+
+### I left the widget layer with a driver and no suite, because I am an idiot and let a script's existence stand in for coverage
+
+`test/drive_main_window.rb` is real work and it is green, but it is not RSpec,
+it is not reached by any `rake` target, it needs `xvfb-run`, and nothing in CI
+runs it. Upstream has no widget tests either — its whole suite is `pkg/state` —
+so this is owed to the port rather than to upstream, and it is owed because
+the port *reimplements* a widget tree upstream merely declares in blueprint.
+
+Upstream: none.
+Port: `test/drive_main_window.rb`, `test/drive_translations.rb`.
+
+---
+
+## Numbers, not adjectives
+
+- Upstream: 42/42 cases mapped to named port examples. 0 unmapped.
+- Port: 45 examples written, **0 executed** — no runner is installed.
+- Drivers: 34/34 and 5/5, both re-run for this audit, both green.

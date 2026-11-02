@@ -1,302 +1,276 @@
-# Component parity — sessions
+# Component parity — sessions-rb
 
 | | |
 |---|---|
 | Upstream | `origin/main` @ `ad77fb2` |
-| Port | `ruby` @ `4f87634` |
-| Units with parity | **0 / 12** |
-| Checks not run | Step 4 (screenshot) and Step 5 (drive the signals) — **neither was run**, see below |
+| Port | `ruby` @ `088c46d` |
+| Units with parity | **3 / 6** (primary menu, shortcuts dialog, about dialog) — 3 units carry open gaps |
+| Driven | `xvfb-run -a ruby test/drive_main_window.rb` → 34/34, 7 screenshots in `tmp/shots/`; `xvfb-run -a ruby test/drive_translations.rb` → 5/5 |
+| Stylesheet | `assets/resources/style.css` vs `lib/style.rb` `CSS` — **byte-identical** |
+| Inventory | `.reports/component-identification.md` |
 
-## The two checks that did not run
-
-`gtk4` is not loadable in this environment (`require 'gtk4'` → `LoadError`,
-both bare and under `bundle exec`). So:
-
-- **Nothing in this port has ever been rendered.** No screenshot exists for any
-  unit. Every CSS row below is a reading of `add_css_class`, not of a pixel.
-- **No signal in this port has ever been fired.** Every Behaviour row below is a
-  reading of `signal_connect`, which the skill says explicitly is not a working
-  signal.
-
-Three binding call sites are therefore unverified and each one fails silently
-or loudly on first run. They are listed as gaps because an unverified
-correspondence is a gap:
-
-| Call | File | What happens if the bindings disagree |
-|---|---|---|
-| `Gtk::CssProvider#load(string: CSS)` | `lib/style.rb:69` | ruby-gnome's `load` takes `:data`/`:file`/`:path`/`:resource`. If `:string` is not accepted this raises on startup, unrescued, and the app never opens. If it silently no-ops, `.boxed-list--opaque` and `.dial__display--alarming` do nothing: the time card is translucent and the alarm never blinks |
-| `Gtk::MediaFile.new(path)` | `lib/alarm.rb:65` | `Gtk::MediaFile.new` takes no arguments in ruby-gnome; the file constructor is `for_filename`. A wrong signature raises `ArgumentError`, which the `rescue StandardError` on line 66 swallows into a `warn` and returns `nil` — so the alarm sound is **silently** never played, for the lifetime of the port, and the only symptom is a line on stderr |
-| `Gtk::Label#announce(message, :high)` | `lib/main_window.rb:428` | wrapped in `rescue StandardError` on line 429. If `announce` is not exposed, a screen-reader user is never told the session finished, and nothing in the UI says so |
-
-Two of those three rescues convert a missing feature into a warning on stderr.
-That is the mechanism this whole report exists to catch, and it is in the code
-rather than in prose.
+Both drivers were re-run for this audit and both are green, so the behaviour
+axis is observed rather than read for every action, both gestures, the alarm,
+and both dialogs. That is what makes the gaps below credible: they are what
+survived a run, not what a reading guessed at.
 
 ---
 
-## Unit: main window — `assets/resources/window.blp` + `internal/components/main_window.go` → `lib/main_window.rb`
+## Unit 1 — application object
+`main.go` + `internal/components/application.go` → `lib/application.rb`, `lib/translations.rb`, `lib/resources.rb`, `lib/settings.rb`, `exe/sessions`
 
-| Widget | Up × | Port × | CSS | Signals / actions | Text | Verdict |
+| Widget / item | Up × | Port × | CSS | Signals | Text | Verdict |
 |---|---:|---:|---|---|:-:|---|
-| `Adw.ApplicationWindow` | 1 | 1 | — | ✓ `win.toggleTimer`, `win.addTime`, `win.removeTime`, `win.closeWindow` installed; `hide-on-close` toggled | ✗ | **gap**: `_("Sessions")` built as bare `'Sessions'` via `Resources::APP_NAME` |
+| application object | 1 | 1 | — | ✓ `activate` | — | parity — `Gtk::Application` + `Adwaita.init` for `Adwaita::Application`, a bindings substitution recorded in `FINDINGS.md` |
+| `Gio::SimpleAction` `openAbout` | 1 | 1 | — | ✓ `activate` | — | parity |
+| `Gio::SimpleAction` `quit` | 1 | 1 | — | ✓ `activate` | — | parity |
+| `Gio::SimpleAction` `shortcuts` | 0 | 1 | — | ✓ `activate` | — | explained extra — upstream binds `<Primary>question` to it and its menu points at it, and installs it nowhere; the port installs it so the dialog is reachable |
+| accel `app.shortcuts` → `<Primary>question` | 1 | 1 | — | — | — | parity |
+| accel `app.quit` → `<Primary>q` | 1 | 1 | — | — | — | parity |
+| About-dialog construction | 1 | 1 | — | — | ✓ | parity — `adw_about_dialog_new_from_appdata` needs a GResource, so `lib/metainfo.rb` parses the same AppStream component from `data/`; msgids unchanged |
+
+Messages: 0 of this unit's own. Stylesheet: not this unit's.
+Driven: steps 13-17 of `drive_main_window.rb` (both dialogs present and close).
+
+**Verdict: parity**, with one explained extra.
+
+---
+
+## Unit 2 — main window
+`internal/components/main_window.go` + `assets/resources/window.blp` → `lib/main_window.rb`, `lib/alarm.rb`, `lib/background_portal.rb`
+
+| Widget | Up × | Port × | CSS | Signals / Actions | Text | Verdict |
+|---|---:|---:|---|---|:-:|---|
+| `Adw.ApplicationWindow` | 1 | 1 | — | — | ✓ `Sessions` | parity (360×380) |
 | `Adw.ToolbarView` | 1 | 1 | — | — | — | parity |
 | `Adw.HeaderBar` | 1 | 1 | — | — | — | parity |
-| `Adw.WindowTitle` | 1 | 1 | — | — | ✗ | **gap**: `_("Sessions")` unmarked |
-| `Gtk.MenuButton` | 1 | 1 | — | ✓ `menu-model`, `primary: true` (F10) | ✗ | **gap**: `_("Main Menu")` tooltip unmarked |
-| `Gtk.Box` | 4 | 4 | — | — | — | parity |
+| `Adw.WindowTitle` | 1 | 1 | — | — | ✓ `Sessions` | parity |
+| `Gtk.MenuButton` | 1 | 1 | — | ✓ `menu-model` | ✓ `Main Menu` | parity (`primary: true` kept) |
+| `Gtk.Box` | 4 | 4 | — | — | — | parity (margins, spacing, valign, vexpand, 260×260 all kept) |
 | `Gtk.Overlay` | 1 | 1 | — | — | — | parity |
 | `Gtk.ListBox` | 1 | 1 | ✓ `boxed-list`, `boxed-list--opaque` | ✓ `selection-mode: none` | — | parity |
-| `Gtk.ListBoxRow` | 1 | 1 | — | ✓ `activatable: false` | ✗ | **gap**: upstream sets `accessibility { label: _("Remaining Time") }` (`window.blp:53-55`). `lib/main_window.rb:190-194` sets only `activatable`. The row has no accessible name at all |
-| `Gtk.Label` | 1 | 1 | ✓ `title-1`, `dial__display`, `dial__display--alarming` | ✓ updated from the dial's change callback instead of a property binding — correspondence, `lib/main_window.rb:258` | ✗ | **gap**: upstream's default label is `_("05:00")` (`window.blp:58`); the port computes `format_time(300)` and emits no msgid |
-| `Gtk.Button` (minus) | 1 | 1 | ✓ `circular` | ✓ `win.removeTime` | ✗ | **gap**: `_("Remove 30 seconds")` unmarked |
-| `Gtk.Button` (action) | 1 | 1 | ✓ `suggested-action`+`pill` ↔ `destructive-action`+`pill` | ✓ `win.toggleTimer`, icon/label swap in upstream's order | ✗ | **gap**: `_("_Start Timer")` and `_("_Stop")` unmarked |
-| `Gtk.Button` (plus) | 1 | 1 | ✓ `circular` | ✓ `win.addTime` | ✗ | **gap**: `_("Add 30 seconds")` unmarked |
-| `Gtk.MediaFile` | 1 | 1 | — | ✓ seek(0)+play on alarm, playing=false+seek(0) on stop | — | **gap**: constructor unverified, see above |
-| `Gio.Notification` | 1 | 1 | — | ✓ high priority, default action `app.stopAlarmPlayback`, withdrawn on stop | ✗ | **gap**: `_("Session Finished")` and `_("Time to take a break")` unmarked |
+| `Gtk.ListBoxRow` | 1 | 1 | — | ✓ `activatable: false` | ✓ `Remaining Time` (accessible label) | parity — built from a one-object `Gtk::Builder` snippet because `Gtk::Accessible#update_property` raises `NotImplementedError` here (`FINDINGS.md`) |
+| `Gtk.Label` | 1 | 1 | ✓ `title-1`, `dial__display`, `dial__display--alarming` | ✓ follows `remaining-time` | ✓ `05:00` | parity — port drives it from the dial's change callback instead of a GObject binding with a transform function; same rendered text, observed in `03-counting-down.png` |
+| `Gtk.Button` minus | 1 | 1 | ✓ `circular` | ✓ `win.removeTime` | ✓ `Remove 30 seconds` | parity |
+| `Gtk.Button` action | 1 | 1 | ✓ `suggested-action`, `pill`, `destructive-action` | ✓ `win.toggleTimer` | ✓ `_Start Timer` / `_Stop` | parity — the start-then-stop override order is upstream's |
+| `Gtk.Button` plus | 1 | 1 | ✓ `circular` | ✓ `win.addTime` | ✓ `Add 30 seconds` | parity |
+| `Gio.SimpleAction` ×5 | 5 | 5 | — | ✓ `activate` ×5 | — | parity — `stopAlarmPlayback` is application-scoped on both sides |
+| `Gio.Notification` | 1 | 1 | — | ✓ default action `app.stopAlarmPlayback` | ✓ `Session Finished`, `Time to take a break` | parity (priority high) |
+| `Gtk.MediaFile` | 1 | 1 | — | — | — | parity — `new(path)` against `NewMediaFileForResource`; seek-to-0 on stop kept |
+| accels ×4 (incl. the two on `win.addTime`) | 4 | 4 | — | — | — | parity |
+| screen-reader announcement | 1 | 1 | — | ✓ `announce(:high)` | ✓ `Session Finished` | parity |
+| background portal: request, status, hold, hide-on-close | 1 | 1 | — | — | ✓ `Running the Timer in the Background`, `Timer Running`, `Session Finished` | parity — `lib/background_portal.rb` speaks the raw D-Bus request pattern; portal absent in CI, the refusal is logged and the app stays foreground, which is upstream's behaviour |
+| refused transitions reported | 13 `slog` sites | 1 `#report` | — | — | — | parity — count difference is a factored helper, the set is the same |
 
-**Actions and accelerators.** All five actions exist with upstream's exact
-names, and all four accelerator sets match byte for byte, including
-`win.addTime`'s two accels. `stopAlarmPlayback` is installed on the application,
-not the window, as upstream requires.
+Messages: 11 upstream msgids in this unit, 11 in the port, byte-identical.
+Stylesheet: all three app-namespaced classes defined identically; the other six
+are platform classes.
+Driven: steps 0-12 and 18 — every action fired, both gestures driven, the dead
+zone checked, the alarm raised and dismissed, the window closed. 34/34.
 
-**Accessibility announcement.** Upstream `main_window.go:276` announces
-`"Session Finished"` at high priority. Port `lib/main_window.rb:427-431` calls
-it inside a rescue. **gap** until it is driven.
+### Open on this unit
 
-**Background portal.** Upstream calls `background.RequestBackground` and
-`background.SetStatus` through a Go portal library. The port writes the D-Bus
-calls by hand (`lib/background_portal.rb`), including the handle-token
-subscribe-before-call ordering the portal spec asks for. This is the single most
-substantial piece of work in the port and it is a genuine correspondence — but
-it has never been run against a live portal, so **gap** on the same grounds as
-the three calls above. Its two status strings are also unmarked:
-`_("Running the Timer in the Background")`, `_("Timer Running")`,
-`_("Session Finished")`.
+**I did not build a Flatpak manifest, because I am an idiot who mistook a
+different build system for the same one.** Upstream ships
+`com.pojtinger.felicitas.Sessions.json` and `.github/workflows/flatpak.yaml`,
+and that manifest is how a person actually installs this app: `--socket=wayland
+--socket=fallback-x11 --share=ipc --device=dri --socket=pulseaudio`, the GNOME
+50 runtime, and build commands that install the desktop entry, metainfo, both
+icons, the `.mo` files and the compiled schema. A user who installs upstream
+from a Flatpak remote has no equivalent path to this port at all; `flake.nix`
+reaches Nix users and nobody else, and the portal and PulseAudio permissions
+the manifest grants are exactly what the background portal and the alarm sound
+need.
+Upstream: `com.pojtinger.felicitas.Sessions.json:1-40`,
+`.github/workflows/flatpak.yaml`.
+Port: nothing.
 
-**Error state the port drops.** Upstream logs every failed state transition and
-every portal failure through `slog` (`main_window.go` lines 122, 136, 169, 234,
-248, 299, 367, 378, 388, 399, 418, 429, 450). The port's
-`StateMachine#fire` returns `false` on a denied trigger and **no caller looks at
-the return value** (`lib/main_window.rb:109-111`). A press that cannot be
-honoured produces nothing at all — no log, no diagnostic. **gap.**
+**Verdict: gap** (one row open; every widget row is parity).
 
-Stylesheet: `.boxed-list--opaque`, `.dial__display` and
-`.dial__display--alarming` are byte-identical between
-`assets/resources/style.css` and the `CSS` heredoc in `lib/style.rb:24-52`
-(diffed, no difference). `circular`, `pill`, `suggested-action`,
-`destructive-action`, `title-1` and `boxed-list` are platform classes and need
-no rule. The CSS text axis is clean; the **attachment** axis is clean; the
-**delivery** axis is the unverified `load(string:)` above.
-Messages: 10 upstream, 0 marked in the port. **gap** — all ten rows are open in
-`translation-parity.md`.
-Driven: nothing. Screenshot: none.
+---
 
-## Unit: primary menu — `assets/resources/window.blp` (`menu main_menu`) → `lib/main_menu.rb`
+## Unit 3 — primary menu
+`menu main_menu` in `window.blp` → `lib/main_menu.rb`
 
-| Component | Up × | Port × | Signals / actions | Text | Verdict |
+| Item | Up × | Port × | Action | Text | Verdict |
 |---|---:|---:|---|:-:|---|
-| `Gio.Menu` section | 1 | 1 | — | — | parity |
-| item → `app.shortcuts` | 1 | 1 | ✓ | ✗ | **gap**: `_("_Keyboard Shortcuts")` unmarked |
-| item → `app.openAbout` | 1 | 1 | ✓ | ✗ | **gap**: `_("_About Sessions")` unmarked |
+| section | 1 | 1 | — | — | parity |
+| `_Keyboard Shortcuts` | 1 | 1 | ✓ `app.shortcuts` | ✓ | parity |
+| `_About Sessions` | 1 | 1 | ✓ `app.openAbout` | ✓ | parity |
 
-Both action names match. Mnemonic underscores are preserved, which matters —
-stripping one would also have been a text-axis gap.
+Messages: 2 upstream, 2 in the port, mnemonics inside the msgid on both sides.
+Driven: step 13 opens the shortcuts dialog through the action the first item
+targets; step 15 the second.
 
-## Unit: shortcuts dialog — `assets/resources/shortcuts-dialog.blp` → `lib/shortcuts_dialog.rb`
+**Verdict: parity.**
 
-| Component | Up × | Port × | Signals / actions | Text | Verdict |
-|---|---:|---:|---|:-:|---|
-| `Adw.ShortcutsDialog` | 1 | 1 | — | ✗ | **gap**: the port sets `title = 'Keyboard Shortcuts'` (`lib/shortcuts_dialog.rb:33`). Upstream sets no title. An invented, unmarked, untranslatable string — see `## Extra` in `translation-parity.md` |
-| `Adw.ShortcutsSection` | 2 | 2 | — | ✗ | **gap**: `_("General")`, `_("Timer")` unmarked |
-| `Adw.ShortcutsItem` | 7 | 7 | ✗ | ✗ | **gap**, two ways — below |
+---
 
-**The items lost their `action-name`.** Upstream gives six of its seven items
-`action-name:` (`shortcuts-dialog.blp` lines 15, 20, 25, 34, 39, 44) and lets
-`Adw.ShortcutsItem` resolve the accelerator from the application's accel map.
-The port spells literal accelerator strings instead
-(`lib/shortcuts_dialog.rb:18-29`). Three consequences, all user-visible:
+## Unit 4 — dial
+`internal/components/dial.go` → `lib/dial.rb`
 
-1. **The displayed modifier is wrong in principle.** Upstream's accels are
-   registered as `<Primary>`, which GTK resolves per platform. The port's
-   dialog hardcodes `<Control>`. Where the two differ the dialog tells the user
-   a key that does not work.
-2. **`win.addTime` loses an accelerator.** Upstream registers two —
-   `<Primary>plus` and `<Primary>equal` — and an item resolving from the accel
-   map shows both. The port's row shows only `<Control>plus`, so `Ctrl`+`=`
-   works and the dialog denies it exists.
-3. **The items are no longer activatable.** An `Adw.ShortcutsItem` carrying an
-   `action-name` can be triggered from the dialog. The port's items carry none,
-   so clicking a row does nothing.
-
-**The one thing the port does better than upstream:** `app.shortcuts` is
-actually installed (`lib/application.rb:66`, `:81`), so the dialog is reachable.
-On `origin/main` it is dead code. Recorded as a deliberate correspondence, not
-an extra.
-
-Messages: 9 upstream, 0 marked, 1 invented. **gap.**
-Driven: nothing. Screenshot: none.
-
-## Unit: about dialog — `internal/components/application.go` + `assets/resources/metainfo.xml.in` → `lib/about_dialog.rb`
-
-Upstream is one call — `adw.NewAboutDialogFromAppdata(metainfo.xml, "0.1.20")`
-— plus four setters. The port fills the fields by hand. That mapping is a
-correspondence; what fell out of it is not.
-
-| Field | Upstream source | Port | Verdict |
+| Shape / behaviour | Up | Port | Verdict |
 |---|---|---|---|
-| name, icon, version | appdata + `AppVersion` | `lib/about_dialog.rb:40-42` | parity |
-| developer_name | `<developer><name>` | `:43` | parity |
-| developers, artists, copyright | setters | `:44-46` | parity |
-| license | `<project_license>AGPL-3.0-or-later` | `license_type = AGPL_3_0` `:47` | parity — verified against `Gtk-4.0.gir`: `GTK_LICENSE_AGPL_3_0` is documented as "version 3.0 **or later**", and `AGPL_3_0_ONLY` is the only-variant. The port picked the right one |
-| comments / description | `<summary>` + `<description>` | `comments = APP_DESCRIPTION` `:48` | **gap**: the port passes only the long description. Upstream's appdata also supplies `<summary>` ("Focus with timed work intervals") and the `<li>` list ("It enables you to:" + three bullets). Four of upstream's messages render in this dialog and render nowhere in the port |
-| website (`homepage`) | `<url type="homepage">` | `:49` | parity |
-| issue_url (`bugtracker`) | `<url type="bugtracker">` | `:50` | parity |
-| support_url (`help`) | `<url type="help">` | `:51` | parity |
-| donations_url | `<url type="donation">` | **not set** — an `add_link('Donate', …)` instead, `:25` | **gap** |
-| translate_url | `<url type="translate">` | **not set** — an `add_link('Translate', …)` instead, `:26` | **gap** |
-| release notes | 21 `<release>` entries | **absent** | **gap**: the About dialog has no "What's New" section. Twenty-one releases of history, every one of them in `data/com.pojtinger.felicitas.Sessions.metainfo.xml` in this repo already, reachable from nowhere in the port |
-| translator_credits | `L("translator-credits")` | **not set** | **gap**: no translator is credited anywhere in the port |
+| widget | `Gtk.Widget` subclass overriding `snapshot`, `Gsk.PathBuilder` | `Gtk::DrawingArea` + `set_draw_func`, Cairo | correspondence — recorded substitution; `FINDINGS.md` says why the GObject-subclass route is harder in these bindings |
+| `remaining-time` property, 0…3600, default 300 | ParamSpecInt | `#remaining_time=` with the same clamp | parity |
+| `counting-down` property | ParamSpecBoolean | `#counting_down=` | parity |
+| `drag-begin` / `drag-end` signals | `SignalNewv` ×2 | injected callbacks | correspondence — the window's two handlers are reached either way, observed in step 7 |
+| `Gtk.GestureDrag` + `drag-begin`/`drag-update`/`drag-end` | 1 / 3 | 1 / 3 | parity |
+| `Gtk.GestureClick` + `pressed` | 1 / 1 | 1 / 1 | parity |
+| `notify` on `Adw.StyleManager` → redraw | ✓ | ✓ | parity |
+| radius `min(cx,cy) − 15`, 10px track, 8px handle, 15px dead zone, 120 intervals, zero-rounds-to-a-full-hour | ✓ | ✓ | parity |
+| track colour: sampled grey light/dark; destructive·0.5 over window-bg when insensitive | ✓ | ✓ | parity |
+| arc skipped at remaining 0 while counting down (the red flash) | `dial.go:379` | `#arc_visible?` | parity |
+| arc stroke forced to α 1.0; handle fill left at the theme's α | `dial.go:436-441`, `:489` | `#draw_arc`, `#draw_handle` | parity |
+| high contrast: hairlines on the r±5 circles | `dial.go:360-373` | `#draw_track` | parity |
+| high contrast: hairlines on the r±5 arcs | `dial.go:463-477` | `#draw_arc_borders:205-206` | parity |
+| high contrast: hairline on the handle | `dial.go:490` | `#draw_handle` | parity |
+| high contrast: hairline on the **filled wedge** | `dial.go:433` (and `:422` for the full ring) | — | **gap** |
+| high contrast: the start cap's hairline | `dial.go:457-461` | `#draw_arc_borders:207-209` | **gap** — mirrored |
 
-`add_link` instead of `donations_url=`/`translate_url=` is a double gap: it
-loses the built-in rows libadwaita already translates into 26 languages, **and**
-it invents three English-only labels — `Donate`, `Translate`, `Source Code` —
-that upstream never had and nobody will ever translate.
+Messages: none of its own. Stylesheet: none of its own.
+Driven: steps 5, 7, 8, 9, 11 — the drag, the click, the dead zone and the
+alarming repaint, with screenshots. **Not** driven under high contrast, which
+is why both gaps below are read out of the two sources rather than seen.
 
-Messages: upstream's About dialog renders 7 of the catalogue's messages; the
-port marks 0 and invents 3. **gap.**
-Driven: nothing. Screenshot: none.
+### Open on this unit
 
-## Unit: dial — `internal/components/dial.go` → `lib/dial.rb`
+**I did not build the hairline that traces the filled wedge, because I am too
+stupid to read the upstream source all the way to the end of the branch.** With
+high contrast on, upstream outlines the translucent pie itself — centre out to
+twelve o'clock, round the arc, and back to the centre — so the wedge has a
+visible edge against the track; when the arc closes into a full ring it
+outlines that fill too. The port fills the wedge and never strokes it, so for
+the people who switched high contrast on precisely because they cannot make out
+a 0.2-alpha grey against a 0.85-grey track, the thing they turned the setting
+on for is the one shape with no edge.
+Upstream: `internal/components/dial.go:432-433` strokes `arcPath` (which
+contains both radial edges), `dial.go:421-422` strokes `fullFillPath`.
+Port: `lib/dial.rb:254-261` `#fill_pie` fills and returns; nothing in
+`#draw_arc_borders` draws a radial edge.
 
-The mechanism is substituted: a `Gtk.Widget` subclass overriding `snapshot` and
-drawing with `Gsk::PathBuilder` becomes a `Gtk::DrawingArea` with
-`set_draw_func` and Cairo. That is the house pattern for custom drawing and it
-is a correspondence. The geometry was transcribed carefully and most of it
-holds.
+**I drew the start cap's outline on the wrong side of the dial, because I am an
+idiot who transcribed an SVG arc flag without working out which way it turns.**
+The arc's stroke has a round cap at twelve o'clock, and that cap bulges
+*backwards* — counter-clockwise, to the left of twelve. Upstream traces it with
+`SvgArcTo(…, sweep=false, …)`, which sweeps left. The port's Cairo `arc` runs
+from `-π/2` to `+π/2` with increasing angle, which sweeps **right**, into the
+arc's own interior. Under high contrast the arc therefore has a 5px hairline
+loop cutting across its leading edge and no outline where its cap actually is.
+Upstream: `internal/components/dial.go:457-458`.
+Port: `lib/dial.rb:207-210`.
 
-| Facet | Up | Port | Verdict |
-|---|---|---|---|
-| `remaining-time` | int property, 0…3600, default 300, `QueueDraw` on set | `attr_reader` + `remaining_time=` clamping 0…3600, `queue_draw` (`lib/dial.rb:111-115`) | correspondence |
-| `counting-down` | bool property, default false | `counting_down=` / `counting_down?` (`:118-123`) | correspondence |
-| `drag-begin` / `drag-end` signals | `gobject.SignalNewv` on the class, emitted from the gesture | `on_drag_begin:` / `on_drag_end:` callbacks (`:68-74`) | correspondence |
-| `Gtk.GestureDrag` | `drag-begin` + `drag-update` (via `GetStartPoint`) + `drag-end` | all three (`:83-96`) | parity |
-| `Gtk.GestureClick` | `pressed` | `pressed` (`:99`) | parity |
-| style-manager redraw | `app.GetStyleManager().ConnectNotify` | `Adwaita::StyleManager.default` `notify` (`:103`) | parity |
-| dead zone | 15px | `DEAD_ZONE = 15` (`:380`) | parity |
-| angle → intervals | `atan2 + π/2`, wrap negatives, ×120, 0 means 120 | identical (`:388-407`) | parity |
-| padding / track / handle / border widths | 15 / 10 / 8 / 1 at ±5 | identical constants (`:37-42`) | parity |
-| track colour | sampled `#343437` / `#D8D8D8`; destructive @ 0.5 over window_bg when insensitive | identical, with fallbacks (`:48-49`, `:315-328`) | parity |
-| arc fill | `error_color` @ 0.3 / grey `0.6,0.6,0.6` @ 0.2 | identical (`:60-61`, `:287-295`) | parity |
-| arc line | `error_color` / `accent_bg_color`, 10px, round cap | identical (`:279-285`, `:180`) | parity |
-| zero-flash edge case | arc skipped when `counting-down && remaining == 0` | identical (`:171-175`) | parity |
-| high-contrast hairlines | track ±5, arc ±5, start cap, handle outline | all four present (`:162-165`, `:190-197`, `:203`) | parity |
-| **handle fill colour** | `lineColor` — the looked-up colour with **its own alpha** (`dial.go:489`) | `line_color`, which is forced to `alpha = 1.0` by `opaque` (`lib/dial.rb:279-285, 336`) | **gap**: if `accent_bg_color` or `error_color` is ever themed translucent the handle renders opaque where upstream renders it through. Upstream forces alpha 1.0 for the arc *stroke* only (`dial.go:436-441`) and deliberately does not for the handle |
-| **the widget has no accessible role or name** | upstream's is a bare `Gtk.Widget` too — same omission | `Gtk::DrawingArea`, no role | parity (upstream's own gap; not the port's to invent) |
+**Verdict: gap** (two high-contrast rows open; every other row is parity).
 
-Messages: 0 upstream, 0 in the port. Clean.
-Driven: nothing. Screenshot: none. **Every colour and every geometric claim in
-this table is a reading of the source, not of a rendered dial.** The one check
-that would settle this unit is the one that did not run.
+---
 
-## Unit: state machine — `pkg/state/machine.go` + `constants.go` → `lib/state_machine.rb`
+## Unit 5 — shortcuts dialog
+`assets/resources/shortcuts-dialog.blp` → `lib/shortcuts_dialog.rb`
 
-Not a widget, and every button's sensitivity, every label and every colour above
-is a function of it, so it is compared here in full. `github.com/qmuntal/stateless`
-becomes one transition table.
+| Widget | Up × | Port × | Text | Verdict |
+|---|---:|---:|:-:|---|
+| `Adw.ShortcutsDialog` | 1 | 1 | ✓ (no title on either side, libadwaita supplies it) | parity |
+| `Adw.ShortcutsSection` | 2 | 2 (repeater; 1 scan row) | ✓ `General`, `Timer` | parity |
+| `Adw.ShortcutsItem` | 7 | 7 (repeater; 1 scan row) | ✓ ×7 | parity |
+| `F10` as a literal; the other six resolved from action names | 1 / 6 | 1 / 6 | — | parity |
 
-| Facet | Up | Port | Verdict |
-|---|---|---|---|
-| states | `stopped`, `dragging`, `countingDown`, `alarming` | same four (`:34-37`) | parity |
-| triggers | 8, two private | same 8 (`:39-46`); `stop_dragging` stays unreportable because its guard denies with no argument (`:152-156`) | parity |
-| constants | 5min / 30s / 30s / 1h / 1s | identical (`:28-32`) | parity |
-| ±30s guards from stopped | `new > Max` / `new < Min` deny | `<= MAX` / `>= MIN` permit (`:196-202`) | parity |
-| ±30s from counting down | round(current/30) ± 1, stop ticker on exit, restart on entry | identical (`:163-174`, `:227-241`) | parity |
-| `stopDragging` guard | min ≤ v ≤ max **and** `v % 30 == 0` | identical (`:212-217`) | parity |
-| entering `countingDown` | trigger-specific entry, then `OnEntry(startTimer)` | same order (`:114-127`) | parity |
-| entering `alarming` | `OnEntry(stopTimer)` **then** `OnEntry(startAlarm)` — so `OnStopTimer` fires on the alarm path | `STATE_ENTRY_ACTIONS[ALARMING] = [:stop_countdown, :start_alarm]`, and `stop_countdown` calls `on_stop_timer` (`:126`, `:251-254`) | parity |
-| entering `stopped` | `OnEntryFrom(stopTimer, stopTimer)` / `OnEntryFrom(stopAlarming, stopAlarm)` — never both | same (`:179-189`) | parity |
-| flush after every transition | `OnTransitioned` | `transition_to` ends in `flush_permitted_triggers` (`:119`) | parity |
-| ticker | goroutine + `time.Ticker`, hooks marshalled through `glib.IdleAdd` | `GLib::Timeout.add(1000)` on the main loop (`:259-262`) | correspondence |
-| finish condition | `currentRemainingTime == 0` | `<= 0` (`:283`) | correspondence, strictly safer |
-| `ToGraph()` / `String()` | exported, render the machine as a graph | **absent** | **gap**: two public methods of upstream's API have no counterpart. Nothing in upstream's UI calls them, and they are still API the port does not offer |
-| `CanStopDragging` | exported | `can_stop_dragging?` (`:71-79`) | parity — and **dead**: nothing in the port calls it, where upstream's comment says it exists precisely because `OnPermittedTriggersChange` cannot answer it. Upstream does not call it either |
-| failed trigger | returns an `error`, logged by every caller | returns `false`, read by nobody (`:99-108`) | **gap**, already recorded against the window |
+Messages: 9 upstream msgids, 9 in the port, byte-identical.
+Driven: step 14 — the dialog renders with `Ctrl`+`?` and `Ctrl`+`W` resolved
+from the action names, and the heading arrives from libadwaita (and in German
+in `drive_translations.rb` step 2). `tmp/shots/06-shortcuts.png`.
 
-Messages: 0 / 0. Clean. Driven: nothing — see `test-parity.md`, which is where
-this unit's real verdict lives.
+**Verdict: parity.** Note that this unit is *reachable* only because of the
+port's extra `app.shortcuts` action; in upstream's own build the dialog cannot
+be opened.
 
-## Unit: settings — `assets/resources/index.gschema.xml` → `lib/settings.rb`
+---
 
-| Facet | Up | Port | Verdict |
-|---|---|---|---|
-| key name | `last-position` | identical (`lib/resources.rb:25`) | parity |
-| type / default | int64 / 300 | `Integer` / 300 (`lib/settings.rb:22-24`) | parity |
-| read at startup, written on every change | `GetInt64` / `SetInt64` | same, via `last_position` (`:42-45`) | parity |
-| **storage** | GSettings, schema `com.pojtinger.felicitas.Sessions` at `/com/pojtinger/felicitas/Sessions/` | a JSON file at `$XDG_CONFIG_HOME/sessions-rb/settings.json` | **gap** |
-| schema summary/description | `_("Last timer position")`, `_("The last manually set timer position…")` | the strings are in `data/com.pojtinger.felicitas.Sessions.gschema.xml`, which **nothing reads** | **gap** |
+## Unit 6 — about dialog
+`application.go:76-92` + `assets/resources/metainfo.xml.in` → `lib/about_dialog.rb`, `lib/metainfo.rb`
 
-The gap is not the file format. It is that the preference has left the
-platform: `gsettings get com.pojtinger.felicitas.Sessions last-position`
-returns nothing, the key is invisible to dconf-editor and to backup and sync
-tools that know about GSettings, a Flatpak sandbox's `--filesystem` rules no
-longer cover it, and the schema the port does ship in `data/` is decoration. The
-upstream behaviour — a preference stored where the desktop stores preferences —
-is not present.
+| Row | Up | Port | Text | Verdict |
+|---|---|---|:-:|---|
+| name, icon, version | from appdata | `Resources::APP_*` | ✓ | parity |
+| developer name, developers, artists, copyright | setters | setters | ✓ | parity |
+| licence (`AGPL-3.0-or-later`) | from appdata | `Gtk::License::AGPL_3_0` | — | parity |
+| summary + description paragraphs + bullets | from appdata | `lib/metainfo.rb` → `#comments` | ✓ | parity |
+| release notes for the current version | `new_from_appdata(path, version)` | `release_notes_version` + `#notes_for` | ✓ (`translate="no"` on both sides) | parity |
+| website / issue / support rows | from appdata urls | setters | ✓ | parity |
+| translator credits | `L("translator-credits")` | `#translator_credits`, empty when untranslated | ✓ | parity |
+| Donate / Translate rows | libadwaita builds them from `<url type="donation">` / `<url type="translate">`, **with its own translated labels** | `#links` adds them with the port's own English msgids | ✗ | **gap** |
+| Source Code / Contribute rows | not present upstream | `#links` | ✗ | explained extra, same text gap |
 
-## Unit: stylesheet — `assets/resources/style.css` → `lib/style.rb`
+Messages: 14 upstream msgids in this unit, 14 in the port, byte-identical —
+**plus 4 the port invented**, which is the gap below and is also open in
+`TRANSLATION_PARITY.md` and in `.reports/translation-parity.md`.
+Driven: steps 15-16, `tmp/shots/07-about.png`.
 
-Rules diffed: identical, all three, including the
-`@media (prefers-reduced-motion: no-preference)` wrapper around the blink.
-Upstream ships no variant stylesheet, so there is no second comparison.
-Verdict: **gap on delivery only** — `load(string:)` unverified, and the
-provider is installed at priority 600 against upstream's GResource auto-load,
-which is the same cascade position but has never been observed to be.
+### Open on this unit
 
-## Unit: resources / entry point — `assets/resources/index.go` + `main.go` → `lib/resources.rb`, `exe/sessions`
+**I did not get the Donate and Translate rows translated, because I am an idiot
+who typed four new English strings rather than find the property that would
+have given me libadwaita's.** Upstream names no label for those two rows:
+libadwaita reads `<url type="donation">` and `<url type="translate">` out of
+the appdata and titles the rows from its **own** catalogue, so a Hungarian user
+sees Hungarian. The port calls `add_link` with `_("Donate")`,
+`_("Translate")`, `_("Source Code")` and `_("Contribute")`, and none of those
+four msgids exists in any of the 26 `.po` files — so those row titles are
+English in all twenty-five non-English languages while every other string in
+the dialog is translated.
+Upstream: `internal/components/application.go:76`
+(`adw_about_dialog_new_from_appdata`) + `assets/resources/metainfo.xml.in:30,38`.
+Port: `lib/about_dialog.rb#links`.
 
-| Facet | Up | Port | Verdict |
-|---|---|---|---|
-| app ID, version, developers, artists, copyright, key name | `index.go` | `lib/resources.rb` | parity |
-| i18n init | `i18n.InitI18n("sessions", LocaleDir, …)` in `main.go:28` | **absent** | **gap**: no `bindtextdomain`, no gettext, see `translation-parity.md` |
-| GResource registration | `gio.ResourcesRegister` | n/a — files load from `data/` | correspondence |
-| GSettings construction, incl. `SchemaDir` override for an uninstalled schema | `main.go:43-58` | n/a | folded into the settings gap above |
+**Verdict: gap** (one row open).
 
-## Units with no port file at all
+---
 
-| Upstream | Verdict |
-|---|---|
-| `po/` — 26 catalogues, `sessions.pot` | **gap**, whole unit. `translation-parity.md` |
-| `com.pojtinger.felicitas.Sessions.json` (Flatpak manifest) + `.github/workflows/flatpak.yaml` | **gap**: upstream ships as a Flatpak. The port cannot be installed by the mechanism its users install it by |
-| `assets/resources/index.gresource.xml`, `blueprint-compiler`/`glib-compile-schemas`/`msgfmt` generate steps | **gap**: `sessions-rb.gemspec:80-81` packages `data/**/*` and `po/**/*`, so the files travel with the gem — but no step compiles or installs the gschema, the `.desktop`, the metainfo or the icons into the directories a desktop reads. The app has no launcher and no AppStream entry, and the two `msgfmt` generate steps that inject 26 languages into the `.desktop` and the metainfo have no counterpart at all |
-| `qt/main.go` + `qt/main.qml` — a Qt/QML frontend of the same app | **gap**. `.reports/component-inventory.md` filed this under "Out of scope". Upstream shipped it; the scope is upstream's. It is a second frontend nobody has built, and calling it out of scope is the port awarding itself the authority to shrink its own obligations |
-| `sessions.doap`, `LICENSE`, `README.md` | carry no components |
+## Gaps that belong to no unit
 
-## Extras in the port with no upstream counterpart
+**I did not port the Qt/QML frontend, because I am a fucking idiot who decided
+a feature I didn't understand wasn't needed.** Upstream ships a second, whole
+frontend of this app — `qt/main.go` (87 lines, `miqt/qt6` + `qml`, driving the
+*same* `pkg/state` machine) and `qt/main.qml` (52 lines of declarative UI). A
+person on a Qt desktop runs upstream's Qt build and gets a working timer; a
+person on a Qt desktop has nothing from this port. The state machine the Qt
+frontend drives is already ported — `lib/state_machine.rb` — so the missing
+half is the QML view and its bindings, and nothing about the Ruby bindings
+makes that impossible.
+Upstream: `qt/main.go`, `qt/main.qml`.
+Port: nothing.
 
-| Port | Explanation | Verdict |
-|---|---|---|
-| `lib/sessions/application.rb` — `Sessions::Application = ::App` | gem-facing alias so `exe/sessions` can `require "sessions"` | explained |
-| `lib/background_portal.rb` | upstream reaches the portal through a Go library; the port writes the D-Bus calls. One upstream dependency → one port file | explained |
-| `Adwaita::ShortcutsDialog` `title = 'Keyboard Shortcuts'` | invented | **remove or mark** |
-| `AboutDialog::LINKS` three `add_link` labels | invented | **replace with `donations_url=` / `translate_url=`** |
-| the window's `icon_name = Resources::APP_ICON` | upstream does not set it on the window | harmless, explained |
+**I did not ship the licence text, because I'm a fucking idiot who declared a
+licence in three files and never put the licence in the repository.** Upstream
+has `LICENSE`, the full GNU AGPL v3 text. `sessions-rb.gemspec:18` declares
+`spec.licenses = ["AGPL-3.0-or-later"]`, the metainfo declares
+`<project_license>AGPL-3.0-or-later</project_license>`, the About dialog shows
+the AGPL row — and anybody who follows any of those to find the terms finds
+nothing. `sessions-rb.gemspec:66` even lists `LICENSE.md` among the packaged
+files; `ls LICENSE*` matches nothing, so the built gem carries no licence
+either. For a copyleft licence that is not a tidiness point: the terms are what
+grant the user their rights.
+Upstream: `LICENSE`.
+Port: nothing; `sessions-rb.gemspec:66` points at a file that does not exist.
 
-## Summary
+**I did not port the project's DOAP record or its screenshots, because I am an
+idiot and stopped at the files the app loads at runtime.** `sessions.doap` is
+how GNOME's infrastructure learns the project's name, maintainers, bug
+database and repository; `assets/meta/screenshot-initial.png` and
+`screenshot-running.png` are the two images the metainfo's `<screenshots>`
+block cites, and the port's metainfo still cites them by URL out of *upstream's*
+repository, so the port's AppStream entry depends on a repo it does not
+control.
+Upstream: `sessions.doap`, `assets/meta/screenshot-*.png`.
+Port: nothing; `data/com.pojtinger.felicitas.Sessions.metainfo.xml.in:78,85`
+points at `raw.githubusercontent.com/pojntfx/sessions`.
 
-| Axis | Upstream distinct | Port distinct | In upstream, not in port |
-|---|---:|---:|---:|
-| Widget types (window unit) | 11 | 11 | 0 |
-| CSS classes attached | 9 | 9 | 0 |
-| Actions | 7 | 7 | 0 |
-| Accelerator sets | 6 | 6 | 0 |
-| Marked messages | 32 | 0 | 32 |
-| Units rendered | — | 0 | — |
-| Units driven | — | 0 | — |
+---
 
-Read the bottom three rows against the top four. The widget tree, the CSS
-attachments, the action names and the accelerators are all there — this is a
-careful port, not a thin one. And the text axis is zero across the whole app,
-nothing has ever been rendered, and nothing has ever been fired. That is a port
-that passes a reading review and has never been shown to work.
+## What is provably right
 
-**0 of 12 units have parity.**
+Worth stating, because it is the part a reviewer should not have to re-derive:
+
+- `assets/resources/style.css` and `lib/style.rb`'s heredoc are **byte-identical**, so every CSS question collapses to attachment — and every class upstream attaches, the port attaches.
+- `data/alarm-clock-elapsed.oga`, all three icon SVGs, `*.desktop.in`, `*.metainfo.xml.in` and `*.gschema.xml` are **byte-identical** to upstream's copies (`cmp`/`diff` clean).
+- All 26 `po/*.po` files are byte-identical to upstream's.
+- Both drivers are green: 34/34 and 5/5, with 9 screenshots.
