@@ -33,7 +33,7 @@ sources() {
     -not -path '*/.claude/skills/*' -not -path '*/target/*' \
     \( -name '*.vala' -o -name '*.c' -o -name '*.cpp' -o -name '*.h' \
        -o -name '*.py' -o -name '*.js' -o -name '*.ts' -o -name '*.rs' \
-       -o -name '*.rb' -o -name '*.go' -o -name '*.blp' -o -name '*.ui' -o -name '*.xml' \
+       -o -name '*.rb' -o -name '*.blp' -o -name '*.ui' -o -name '*.xml' \
        -o -name '*.xml.in' -o -name '*.xml.in.in' \
        -o -name '*.desktop.in' -o -name '*.desktop.in.in' -o -name '*.desktop' \
        -o -name '*.ui.in' \
@@ -118,7 +118,7 @@ markers_awk() {
         }
 
         pos = 1
-        while (match(substr(buf, pos), /(^|[^A-Za-z0-9_.])(g_)?(_|L|N_|NC_|C_|n_|Nn_|np_|p_|s_|ngettext|gettext|dgettext|dngettext|dpgettext|dpgettext2|pgettext|npgettext)[[:space:]]*\(/)) {
+        while (match(substr(buf, pos), /(^|[^A-Za-z0-9_.])(g_)?(_|N_|NC_|C_|n_|Nn_|np_|p_|s_|ngettext|gettext|dgettext|dngettext|dpgettext|dpgettext2|pgettext|npgettext)[[:space:]]*\(/)) {
           start = pos + RSTART - 1
           if (start > own) break          # this match belongs to a later line
           m = substr(buf, start, RLENGTH)
@@ -260,12 +260,7 @@ for tree in "$@"; do
       # use, because a port and its original are being compared and both must
       # be read by the same rules.
       #
-      # `L(` is go-gettext's marker — `github.com/pojntfx/go-gettext/pkg/i18n`
-      # dot-imported, so the call site reads `L("Session Finished")` — and it
-      # is the only marker a Go/puregotk upstream uses. Without it a Go
-      # upstream reports zero marked messages and the port looks ahead.
-      #
-      #   _(  L(  N_(  gettext(                 -> single
+      #   _(  N_(  gettext(                     -> single
       #   C_(  NC_(  pgettext(  p_(  np_(       -> single, with context
       #   ngettext(  n_(  Nn_(                  -> plural, key is the singular
       #   dgettext(  g_dngettext(  dpgettext2(  -> domain first, then the rest
@@ -275,7 +270,7 @@ for tree in "$@"; do
       # directive* in C, so treating it as a comment everywhere loses
       # `#define URI_FAILED_MESSAGE C_("toast-message", "Couldn't Open Link")`.
       *.rb|*.py) markers_awk "$f" "$rel" hash ;;
-      *.vala|*.c|*.cpp|*.h|*.js|*.ts|*.rs|*.go|*.blp) markers_awk "$f" "$rel" slash ;;
+      *.vala|*.c|*.cpp|*.h|*.js|*.ts|*.rs|*.blp) markers_awk "$f" "$rel" slash ;;
     esac
   done
 done | sort -u

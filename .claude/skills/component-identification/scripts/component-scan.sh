@@ -74,7 +74,7 @@ srcfiles() {
     \( -name '*.ui' -o -name '*.ui.in' -o -name '*.blp' -o -name '*.blp.in' \
        -o -name '*.vala' -o -name '*.c' -o -name '*.h' \
        -o -name '*.py' -o -name '*.js' -o -name '*.ts' -o -name '*.rs' \
-       -o -name '*.rb' -o -name '*.go' \) 2>/dev/null
+       -o -name '*.rb' \) 2>/dev/null
 }
 
 # tally <file> <kind> - reads matched values on stdin, emits deduped rows with
@@ -98,24 +98,6 @@ grep -rhoE '#define[[:space:]]+[A-Z][A-Z0-9_]*[[:space:]]+"[^"]+"' $(srcfiles) 2
 srcfiles | { while IFS= read -r f; do
   rel=${f#"$TREE"/}
 
-  # A comment is documentation, not a constructed widget. A port's file
-  # headers name the upstream classes they were ported from - "Ported from
-  # Adw.Dialog", "Adwaita::Application is broken in the bindings" - and
-  # scanning them makes the port look as though it builds widgets it does not.
-  # Line numbering is preserved so the blanked lines still line up.
-  #
-  # Only the line-comment forms, because a Ruby `#` or a Go `//` inside a
-  # string would otherwise take the rest of the line with it; the matchers
-  # below all work line by line, so a =begin/=end block is left alone.
-  # $f becomes the blanked copy, so the language tests below ask $orig -
-  # a mktemp path has no extension and every `case` arm would miss.
-  orig=$f
-  scratch=""
-  case "$orig" in
-    *.rb) scratch=$(mktemp); sed 's/^[[:space:]]*#.*//' "$f" > "$scratch"; f=$scratch ;;
-    *.go) scratch=$(mktemp); sed 's|^[[:space:]]*//.*||' "$f" > "$scratch"; f=$scratch ;;
-  esac
-
   # --- widgets -------------------------------------------------------------
   # Normalised to Ns.Type so that Vala `new Adw.ActionRow`, GtkBuilder
   # class="AdwActionRow", gtk-rs `adw::ActionRow` and Ruby
@@ -138,24 +120,6 @@ srcfiles | { while IFS= read -r f; do
       | sed -E 's/^gtk4?::/Gtk./; s/^(adw|libadwaita)::/Adw./; s/^vte::/Vte./
                 s/^sourceview5?::/GtkSource./; s/^shumate::/Shumate./
                 s/^webkit6?::/WebKit./; s/^panel::/Panel./'
-    # Go / puregotk: `gtk.NewButton()`, `adw.NewHeaderBar()` and the bare
-    # type references `var w gtk.Widget` / `&adw.ToolbarView{}`. The namespace
-    # is lowercase, so none of the arms above see it, and a Go/puregotk
-    # upstream otherwise reports zero widgets for an app whose entire widget
-    # tree is built in Go.
-    grep -ohE '\b(gtk|adw|gio|gdk|gsk|pango|vte|gtksource|shumate|webkit|panel)\.New[A-Z][A-Za-z0-9]*' "$f" 2>/dev/null \
-      | sed -E 's/\.New/./' \
-      | sed -E 's/^gtk\./Gtk./; s/^adw\./Adw./; s/^gio\./Gio./; s/^gdk\./Gdk./
-                s/^gsk\./Gsk./; s/^pango\./Pango./; s/^vte\./Vte./
-                s/^gtksource\./GtkSource./; s/^shumate\./Shumate./
-                s/^webkit\./WebKit./; s/^panel\./Panel./'
-    case "$orig" in *.go)
-      grep -ohE '\b(gtk|adw|vte|gtksource|shumate|webkit|panel)\.[A-Z][A-Za-z0-9]+' "$f" 2>/dev/null \
-        | sed -E 's/^gtk\./Gtk./; s/^adw\./Adw./; s/^vte\./Vte./
-                  s/^gtksource\./GtkSource./; s/^shumate\./Shumate./
-                  s/^webkit\./WebKit./; s/^panel\./Panel./' ;;
-    esac
-
     # C: GTK_TYPE_LIST_BOX / ADW_TYPE_ACTION_ROW macros, and gtk_*_new()
     # constructors. Without these the whole C source side is invisible - the
     # widget tree is in the .ui, but everything built at runtime is in here.
@@ -180,7 +144,7 @@ srcfiles | { while IFS= read -r f; do
     # `MenuButton btn {`, `content: WindowHandle {`. Without this the only
     # widgets found in a .blp are the Adw.-prefixed ones, which on a typical
     # app is four rows out of thirty.
-    case "$orig" in *.blp)
+    case "$f" in *.blp)
       {
         grep -ohE '^[[:space:]]*[A-Z][A-Za-z0-9]+([[:space:]]+[a-z_][A-Za-z0-9_]*)?[[:space:]]*\{' "$f" 2>/dev/null \
           | sed -E 's/^[[:space:]]*([A-Z][A-Za-z0-9]+).*/\1/'
@@ -202,9 +166,6 @@ srcfiles | { while IFS= read -r f; do
       | sed 's/^[^"]*"//; s/".*$//'
     grep -ohE "(add|remove)_(css_)?class *\([^;]*'[^']+'" "$f" 2>/dev/null \
       | sed "s/^[^']*'//; s/'.*\$//"
-    # Go / puregotk: w.AddCssClass("flat") / w.RemoveCssClass("flat").
-    grep -ohE '(Add|Remove)CssClass *\([^)]*"[^"]+"' "$f" 2>/dev/null \
-      | sed 's/^[^"]*"//; s/".*$//'
     # ... and the same call taking a #define'd constant instead of a literal.
     grep -ohE '(add|remove)_(css_)?class *\([^;]*,[[:space:]]*[A-Z][A-Z0-9_]+' "$f" 2>/dev/null \
       | sed -E 's/.*,[[:space:]]*//' \
@@ -238,7 +199,7 @@ srcfiles | { while IFS= read -r f; do
     # Vala only: foo.clicked.connect (...). In GJS and Python the same shape
     # is `this.style_manager.connect("notify::dark")`, where the middle token
     # is a property, not a signal - applying this rule there invents signals.
-    case "$orig" in *.vala)
+    case "$f" in *.vala)
       grep -ohE '\.[a-z][a-z0-9_]*\.connect *\(' "$f" 2>/dev/null \
         | sed -E 's/^\.//; s/\.connect *\($//' ;;
     esac
@@ -263,16 +224,6 @@ srcfiles | { while IFS= read -r f; do
                print substr($0, RSTART + 1, RLENGTH - 2); s = 0
              } else if (/\);/) s = 0 }' "$f" 2>/dev/null
 
-    # Go / puregotk: the generated per-signal connector,
-    # `button.ConnectClicked(&cb)` / `win.ConnectCloseRequest(&cb)`. The
-    # CamelCase name is the signal in Pascal case; the sed below turns
-    # underscores into hyphens, so the split is done here.
-    case "$orig" in *.go)
-      grep -ohE '\.Connect[A-Z][A-Za-z0-9]* *\(' "$f" 2>/dev/null \
-        | sed -E 's/^\.Connect//; s/ *\($//' \
-        | sed -E 's/([a-z0-9])([A-Z])/\1_\2/g' | tr '[:upper:]' '[:lower:]' ;;
-    esac
-
     # Blueprint: clicked => $on_clicked()
     grep -ohE '^[[:space:]]*[a-z][a-z0-9_-]* *=> *\$' "$f" 2>/dev/null | sed 's/ *=>.*//'
   } | sed 's/_/-/g' | tally "$rel" signal
@@ -288,7 +239,7 @@ srcfiles | { while IFS= read -r f; do
     # Matched only in an action CONTEXT: a bare prefixed literal anywhere is
     # just as often a filename (`addp-hunk-edit.diff`, `gschemas.compiled`),
     # and no extension blocklist is ever complete.
-    grep -ohE "(action[_-]?name|SetActionName|activate_action|ActivateAction|accels_for_action|SetAccelsForAction|install_action|add_action|AddAction|SimpleAction|action_target|action:|\baction\b)[^;]*['\"][a-z][a-z0-9-]*\.[a-z0-9_-]+['\"]" "$f" 2>/dev/null \
+    grep -ohE "(action[_-]?name|activate_action|accels_for_action|install_action|add_action|SimpleAction|action_target|action:|\baction\b)[^;]*['\"][a-z][a-z0-9-]*\.[a-z0-9_-]+['\"]" "$f" 2>/dev/null \
       | grep -ohE "['\"][a-z][a-z0-9-]*\.[a-z0-9_-]+['\"]" | tr -d "\"'"
     grep -ohE '<property +name="action-name"[^>]*>[^<]+' "$f" 2>/dev/null | sed 's/.*>//'
     # GJS: new Gio.SimpleAction({ name: "cancel" }) - the name is a property
@@ -300,11 +251,9 @@ srcfiles | { while IFS= read -r f; do
              } else if (/\);/) s = 0 }' "$f" 2>/dev/null
 
     # Bare names at an install site: the widget supplies the prefix.
-    grep -ohE '(SimpleAction\.new|NewSimpleAction|install_action|InstallAction|add_action|AddAction|create_action|lookup_action|LookupAction|action_name|SetActionName|SetAccelsForAction|ActivateAction) *[(=:][^)]*["'"'"'][A-Za-z0-9_.-]+' \
+    grep -ohE '(SimpleAction\.new|install_action|add_action|create_action|lookup_action|action_name) *[(=:][^)]*["'"'"'][A-Za-z0-9_.-]+' \
       "$f" 2>/dev/null | sed -E 's/.*["'"'"']//'
   } | awk -F. 'NF <= 2' | grep -vE '^(org|com|io|net|www)\.' | tally "$rel" action
-
-  [ -n "$scratch" ] && rm -f "$scratch"
 
   :
 done; } | classify
