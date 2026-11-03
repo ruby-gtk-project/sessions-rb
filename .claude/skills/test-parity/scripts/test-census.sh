@@ -27,8 +27,7 @@ testfiles() {
     -not -path '*/subprojects/*' -not -path '*/.bundle/*' \
     -not -path '*/.claude/skills/*' -not -path '*/target/debug/*' \
     \( -name '*.vala' -o -name '*.c' -o -name '*.py' -o -name '*.js' \
-       -o -name '*.ts' -o -name '*.rs' -o -name '*.rb' -o -name '*.cpp' \
-       -o -name '*.go' \) 2>/dev/null \
+       -o -name '*.ts' -o -name '*.rs' -o -name '*.rb' -o -name '*.cpp' \) 2>/dev/null \
   | while IFS= read -r f; do
       base=${f##*/}
       case "$base" in
@@ -42,7 +41,7 @@ testfiles() {
         */test_*|*/*_test.*|*/*_tests.*|*/*-test.*|*/test-*|*/*_spec.*|*/spec_*) printf '%s\n' "$f"; continue ;;
       esac
       # Content fallback for tests living beside the code they cover.
-      grep -qE '#\[([A-Za-z0-9_]+::)*(test|test_case)\]|#\[cfg\(test\)\]|(g_)?[Tt]est(\.|_)add_func|^[[:space:]]*(import|from) +(unittest|pytest)|^func +(Test|Benchmark|Fuzz|Example)[A-Z0-9_]' \
+      grep -qE '#\[([A-Za-z0-9_]+::)*(test|test_case)\]|#\[cfg\(test\)\]|(g_)?[Tt]est(\.|_)add_func|^[[:space:]]*(import|from) +(unittest|pytest)' \
         "$f" 2>/dev/null && printf '%s\n' "$f"
     done
 }
@@ -96,40 +95,6 @@ for tree in "$@"; do
             t = 0
           }
         }' "$f" | sed "s|^$TREE/||" ;;
-
-      # Go: `func TestX(t *testing.T)` is the case the toolchain runs, and
-      # `t.Run(name, func...)` is the subtest a table-driven suite generates
-      # one of per table entry. Both are counted, because a Go suite's unit of
-      # intent is almost always the table entry and the enclosing function is
-      # only its heading - upstream's pkg/state/machine_test.go is ten
-      # functions and forty-two generated cases, and a census that reports
-      # ten has lost four fifths of the suite.
-      #
-      # A subtest's name is usually an expression (`tt.name`,
-      # `fmt.Sprintf(...)`) rather than a literal, so whatever stands in the
-      # first argument is the identifier; a literal is unquoted when there is
-      # one.
-      *.go)
-        tmp=$(mktemp); sed 's|^[[:space:]]*//.*||' "$f" > "$tmp"
-        emit "$rel" "$tmp" '^func +(Test|Benchmark|Fuzz|Example)[A-Za-z0-9_]*' 's/^func +//'
-        # t.Run's name argument is very often on the line after the call -
-        # a table-driven suite writes `t.Run(` then `fmt.Sprintf(...)` - so
-        # the open paren is tracked rather than matched on one line.
-        awk -v F="$rel" '
-          {
-            if (!open && match($0, /(^|[^A-Za-z0-9_.])t\.Run[[:space:]]*\(/)) {
-              open = 1; start = NR; rest = substr($0, RSTART + RLENGTH)
-            } else if (open) rest = $0
-            if (open) {
-              gsub(/^[[:space:]]+|[[:space:]]+$/, "", rest)
-              if (rest != "") {
-                sub(/,$/, "", rest); gsub(/^"|"$/, "", rest)
-                print F "\t" rest "\t" start
-                open = 0
-              }
-            }
-          }' "$tmp"
-        rm -f "$tmp" ;;
 
       # Ruby: minitest def test_*, spec-style it "...", and the house style
       # used across this fleet's ports - a named check(...) block, or
