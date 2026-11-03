@@ -114,15 +114,18 @@
           name = "sessions-qt-gems";
           ruby = pkgs.ruby_3_4;
           gemdir = ./nix/qt;
+          # glib2 is deliberately absent from this override list: nixpkgs'
+          # own defaultGemConfig already carries a glib2 entry with the whole
+          # pkg-config closure glib's Requires.private pulls in — including
+          # sysprof-capture, which `gtkStack` does not have, so overriding it
+          # with `rubyGnomeGem` fails extconf on a missing .pc. The GTK bundle
+          # above leaves it alone for the same reason.
           gemConfig = pkgs.defaultGemConfig // {
-            glib2 = rubyGnomeGem;
             ruby-qt6-rice = rubyQt6Gem;
             ruby-qt6-qtcore = rubyQt6Gem;
             ruby-qt6-qtgui = rubyQt6Gem;
             ruby-qt6-qtwidgets = rubyQt6Gem;
             ruby-qt6-qtqml = rubyQt6Gem;
-            ruby-qt6-qtquick = rubyQt6Gem;
-            ruby-qt6-qtquickcontrols2 = rubyQt6Gem;
           };
         };
 

@@ -63,28 +63,6 @@
     };
     version = "6.3.0";
   };
-  ruby-qt6-qtquick = {
-    dependencies = ["ruby-qt6-qtcore" "ruby-qt6-qtgui" "ruby-qt6-qtqml" "ruby-qt6-rice"];
-    groups = ["default"];
-    platforms = [];
-    source = {
-      remotes = ["https://rubygems.org"];
-      sha256 = "09bdqp1slfnaxmm81iwx28cfwrl2a8an9i2y8r7qaraw3vjhv4g8";
-      type = "gem";
-    };
-    version = "6.3.0";
-  };
-  ruby-qt6-qtquickcontrols2 = {
-    dependencies = ["ruby-qt6-qtcore" "ruby-qt6-rice"];
-    groups = ["default"];
-    platforms = [];
-    source = {
-      remotes = ["https://rubygems.org"];
-      sha256 = "19fnvi7c4r39kcc1krli1gl7wqg60rwp12b884kdz2vzaf8va8dd";
-      type = "gem";
-    };
-    version = "6.3.0";
-  };
   ruby-qt6-qtwidgets = {
     dependencies = ["ruby-qt6-qtcore" "ruby-qt6-qtgui" "ruby-qt6-rice"];
     groups = ["default"];

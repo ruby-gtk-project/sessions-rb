@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
 require 'qt6/qtwidgets'
-require 'qt6/qtquick'
-require 'qt6/qtquickcontrols2'
+require 'qt6/qtqml'
 
 require_relative 'resources'
 require_relative 'state_machine'

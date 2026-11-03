@@ -25,7 +25,8 @@
 #     between a Plasma user running this and a process that exits at startup.
 #     The last step runs the real event loop and shows the window.
 #   * the state machine reaching the Qt process at all, with the five minutes
-#     and the three triggers upstream's `FlushPermittedTriggers` announces.
+#     and the four triggers upstream's `FlushPermittedTriggers` announces from
+#     the stopped state.
 
 require 'tmpdir'
 

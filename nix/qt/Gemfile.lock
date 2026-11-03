@@ -14,14 +14,6 @@ GEM
     ruby-qt6-qtqml (6.3.0)
       ruby-qt6-qtcore (~> 6.3.0)
       ruby-qt6-rice (= 6.3.0)
-    ruby-qt6-qtquick (6.3.0)
-      ruby-qt6-qtcore (~> 6.3.0)
-      ruby-qt6-qtgui (~> 6.3.0)
-      ruby-qt6-qtqml (~> 6.3.0)
-      ruby-qt6-rice (= 6.3.0)
-    ruby-qt6-qtquickcontrols2 (6.3.0)
-      ruby-qt6-qtcore (~> 6.3.0)
-      ruby-qt6-rice (= 6.3.0)
     ruby-qt6-qtwidgets (6.3.0)
       ruby-qt6-qtcore (~> 6.3.0)
       ruby-qt6-qtgui (~> 6.3.0)
@@ -35,8 +27,6 @@ PLATFORMS
 DEPENDENCIES
   glib2 (= 4.3.9)
   ruby-qt6-qtqml
-  ruby-qt6-qtquick
-  ruby-qt6-qtquickcontrols2
   ruby-qt6-qtwidgets
 
 BUNDLED WITH

@@ -5,31 +5,32 @@
 # These are deliberately NOT gemspec runtime dependencies and NOT in
 # nix/Gemfile. `ruby-qt6-*` are Rice-based C++ extensions that compile against
 # Qt 6; making them dependencies of `sessions-rb` would mean every install of
-# the GTK app builds Qt bindings it never loads. Upstream has the same split in
-# reverse: `github.com/mappu/miqt` is in its go.mod, but the Flatpak manifest
-# runs `go install .` on the root package only, so the Qt frontend is never in
-# the shipped build either.
+# the GTK app building Qt bindings it never loads. Upstream has the same split:
+# `github.com/mappu/miqt` is a direct require in its go.mod, but the Flatpak
+# manifest runs `go install .` on the root package only, so the Qt frontend is
+# not in the shipped build either.
 #
-# Upstream: `qt/main.go` imports `github.com/mappu/miqt/qt6` and
-# `github.com/mappu/miqt/qt6/qml`.
+# The two gems here are upstream's two imports and no more. qt/main.go imports
+# `github.com/mappu/miqt/qt6` and `github.com/mappu/miqt/qt6/qml`; there is no
+# QtQuick or QtQuick.Controls import on either side, because a QML module
+# registers its own types when the engine resolves the `import` — the three
+# `import QtQuick…` lines in data/qt/main.qml are answered by qtdeclarative's
+# QML plugins on QML_IMPORT_PATH, not by anything linked into this process.
 source "https://rubygems.org"
 
-# qt6.NewQApplication — QtWidgets, not QtGui: Kirigami's desktop style draws
-# through QStyle. Pulls in ruby-qt6-qtcore, -qtgui and -rice.
+# `qt6.NewQApplication`. QtWidgets rather than QtGui, because Kirigami's
+# desktop style draws its controls through QStyle and only a QApplication
+# installs one. Pulls in ruby-qt6-qtgui, -qtcore and -rice.
 gem "ruby-qt6-qtwidgets"
 
-# qml.NewQQmlApplicationEngine.
+# `qml.NewQQmlApplicationEngine`.
 gem "ruby-qt6-qtqml"
-
-# The QML document's `import QtQuick` and `import QtQuick.Controls`: the types
-# have to be registered in the engine before main.qml can name them.
-gem "ruby-qt6-qtquick"
-gem "ruby-qt6-qtquickcontrols2"
 
 # lib/state_machine.rb requires lib/ticker.rb, which is a GLib::Timeout. The
 # Qt frontend never fires a trigger and so never schedules a beat, but the
 # `require` happens at load time, so glib2 is in this bundle. gtk4 and adwaita
 # are not: no Qt code path touches a widget.
+#
 # Pinned to the version the GTK bundle resolves (nix/Gemfile.lock), so the two
 # frontends load the same GLib binding.
 gem "glib2", "= 4.3.9"
