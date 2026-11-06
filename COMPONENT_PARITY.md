@@ -58,52 +58,68 @@ them.
 
 ## Open
 
-### I have not ported the Qt/QML frontend
+### The Qt/QML frontend is written but still not observed to run
 
-Upstream ships a second frontend of this same app — `qt/main.go` (46 lines)
-and `qt/main.qml` (52 lines) — and the port has nothing corresponding to it.
-(This entry said 87 and 121 lines for five rounds. `git show origin/main:qt/… |
-wc -l` says 46 and 52: I was overstating the size of the work I had not done,
-which makes it easier to leave undone.)
-A user who runs upstream's Qt build gets a working timer; a user of this port
-has no such option at all.
+This entry used to say "I have not ported the Qt/QML frontend" and "Port:
+nothing", which a prior round made false without ever coming back to fix: a
+port of `qt/main.go` and `qt/main.qml` was committed (`lib/qt_application.rb`,
+`exe/sessions-qt`, `lib/sessions/qt.rb`, `data/qt/main.qml`, `nix/qt/`, the
+`qtGems` output and `packages.qt` in `flake.nix`, `test/drive_qt.rb`,
+`rake drive:qt`), and this row kept reading as if none of that existed. A
+row claiming less than the tree holds is the same defect as one claiming
+more — both are a ledger somebody would trust without checking.
 
-Round one filed this under a heading reading "Out of scope", which was me
-redefining the target until the current state hit it. Upstream set the scope by
-shipping the frontend. The heading is gone from
-`.reports/component-inventory.md`.
+What is genuinely still true: nobody has watched it run. The commit that
+wrote it said so itself ("the run never reached its parity audit or its drive
+script, so nothing here has been observed to run"), and this round tried to
+close that — `nix develop --command xvfb-run -a ruby test/drive_qt.rb` — and
+could not get a result inside the time this round had. `top` during the
+attempt showed a load average over 13 on an 8GB box with several `nixbld*`
+users compiling in parallel (`cc1plus`, and several `ruby extconf.rb`
+processes for the `ruby-qt6-*` gems' native extensions, at once); the process
+was still building past 25 minutes when this round had to stop waiting on it.
+That is contention evidence, not a verdict on the frontend — it says the
+*attempt* did not finish, not that the code is wrong.
 Upstream: `qt/main.go`, `qt/main.qml`.
-Port: nothing.
-Owner: **unassigned**. This row closes when a Plasma user can run this port.
-Nothing else closes it — the previous wording let it close "or upstream drops
-the frontend", which is a status field pretending to be an exit.
-What is in the way (not a reason to stop): a QML frontend in Ruby needs a
-binding set that is in neither this flake nor maintenance against Qt 6
-(`qml-ruby`, `ruby-qml`). Over 98 lines of upstream, driving a state machine
-`lib/state_machine.rb` already implements.
+Port: `lib/qt_application.rb`, `exe/sessions-qt`, `data/qt/main.qml`.
+Owner: **unassigned**. This row closes when `rake drive:qt` (or
+`test/drive_qt.rb` by hand) has actually been run to completion against this
+tree and its output has been looked at — a Kirigami window with the state
+machine flushed from the stopped state, upstream's own skeleton of a second
+frontend. Nothing else closes it.
 
-### I have not written a Flatpak manifest
+### The Flatpak manifest is written, and still unbuilt
 
 Upstream ships `com.pojtinger.felicitas.Sessions.json` and
 `.github/workflows/flatpak.yaml`, so upstream is installable from a Flatpak
-remote. This port is not installable that way at all.
+remote. This round wrote both files for the port, and neither has been run
+through `flatpak-builder` — this environment has no `flatpak` or
+`flatpak-builder` binary at all, so "I wrote a manifest" and "the manifest
+builds" remain two different claims and only the first one is made here.
 
-I wrote the install half of the gap — `rake install_data` and `flake.nix`'s
-`installPhase` put the desktop entry, metainfo, icons, compiled schema and
-twenty-six catalogues where a desktop reads them — and then stopped, because I
-could not build or test a manifest in this environment and a manifest that
-does not build is indistinguishable from one nobody has tried.
-Upstream: `com.pojtinger.felicitas.Sessions.json`.
-Port: nothing.
-Owner: **unassigned**. This row closes when `flatpak install` gets somebody
-this app. Two of upstream's finish-args are load-bearing and have to survive
-into whatever closes it: `--socket=pulseaudio`, without which `lib/alarm.rb` is
-silent, and the portal access `lib/background_portal.rb` exists for.
-What is in the way (not a reason to stop): there is no
-`org.freedesktop.Sdk.Extension.ruby`, so a Ruby manifest has to build Ruby and
-eight ruby-gnome C extensions from pinned sources inside the manifest, and none
-of those sha256s can be computed without running a build this environment
-cannot run.
+Confirmed first, because `org.freedesktop.Sdk.Extension.ruby` was removed
+from freedesktop-sdk as of 25.08 and `org.gnome.Sdk//50` sits on top of that —
+there is no Ruby SDK extension to ask for. `com.pojtinger.felicitas.Sessions.json`
+therefore builds Ruby 3.4.2 itself as its first module (`autotools` against a
+pinned source tarball) and installs the gemspec's four runtime gems and their
+twenty-five transitive dependencies from a vendored `.gem` cache in its second
+module — every one of those 30 sources (Ruby's tarball plus 29 gem files) carries
+a `sha256` actually computed by downloading the file and hashing it in this
+session, not invented. What was not possible to compute here is whether the
+two modules link: whether Ruby's `./configure` finds what it needs in
+`org.gnome.Sdk` without `libyaml`-devel declared anywhere, whether
+`bundle install --local` resolves purely from the vendored cache with no
+network, and whether the native gem extensions (`cairo`, `gdk4`, `gsk4`, …)
+find GTK4's headers through the SDK's own `pkg-config` the way `flake.nix`'s
+`rubyGnomeGem` override does for Nix.
+Upstream: `com.pojtinger.felicitas.Sessions.json`, `.github/workflows/flatpak.yaml`.
+Port: `com.pojtinger.felicitas.Sessions.json`, `.github/workflows/flatpak.yaml`.
+Owner: **unassigned**. This row closes when `flatpak-builder` has actually
+turned this manifest into a running app, not when the JSON parses. Two of
+upstream's finish-args are load-bearing and have to survive into whatever
+closes it: `--socket=pulseaudio`, without which `lib/alarm.rb` is silent, and
+the portal access `lib/background_portal.rb` exists for — both are already in
+the manifest written this round, carried over from upstream's unchanged.
 
 ### Closed: the four About-dialog link rows are deleted
 

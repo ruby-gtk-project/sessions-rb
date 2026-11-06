@@ -1,0 +1,75 @@
+name: Flatpak CI
+
+# Upstream's .github/workflows/flatpak.yaml builds qt/main.go's companion, the
+# Go binary, with the golang SDK extension on org.gnome.Sdk. This port has no
+# Go: com.pojtinger.felicitas.Sessions.json builds Ruby 3.4 from source as its
+# own module and installs this gem tree's runtime gems from a vendored cache,
+# so the matrix, the container image and the publish steps below are
+# upstream's unchanged — only the manifest module itself tells the two builds
+# apart.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-linux:
+    runs-on: ${{ matrix.target.runner }}
+    permissions:
+      contents: read
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    strategy:
+      matrix:
+        target:
+          - id: flatpak-x86_64
+            arch: x86_64
+            runner: ubuntu-24.04
+          - id: flatpak-aarch64
+            arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build Flatpak and upload output
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: com.pojtinger.felicitas.Sessions.${{ matrix.target.arch }}.flatpak
+          manifest-path: com.pojtinger.felicitas.Sessions.json
+          cache-key: flatpak-builder-${{ github.sha }}
+          arch: ${{ matrix.target.arch }}
+
+  publish-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs: build-linux
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Download output
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/out
+      - name: Extract branch name
+        id: extract_branch
+        run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
+      - name: Publish pre-release to GitHub releases
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: release-${{ steps.extract_branch.outputs.branch }}
+          prerelease: true
+          overwrite_files: true
+          files: |
+            /tmp/out/*/*
+      - name: Publish release to GitHub releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
+        with:
+          prerelease: false
+          overwrite_files: true
+          files: |
+            /tmp/out/*/*
