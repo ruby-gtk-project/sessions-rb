@@ -157,3 +157,39 @@ recommends now does what the banner says. Item 3 (`drive:qt` run to
 completion in `nix develop .#qt`) and item 4 (prior-round items already
 closed) are unchanged by this update; item 3 is covered separately in
 `component-parity.md`.
+
+---
+
+## Round ten — independent adversarial re-check
+
+Re-ran the deferral-marker scan myself: `grep -rniE "TODO|FIXME|not
+implemented|for now|in a future|XXX" lib/ exe/` — still empty. Re-ran
+`.claude/skills/accountability-ensurance/scripts/find-excuses.sh .` over the
+whole tree; every hit it produced (`TRANSLATION_PARITY.md`,
+`COMPONENT_PARITY.md`, `PORTING.md`, `LICENSE.md`, and several
+`.reports/*.md` lines) is, on inspection of the surrounding text, prose
+*about* a past excuse ("this used to say X, now says Y") or AGPL
+boilerplate, not a live excuse presented as a settled decision. The skill's
+own exemption covers all of them; none needed rewriting this round.
+
+**One thing this round checked that no prior round's report named
+explicitly: is the Qt gap itself being quietly downgraded into something
+that reads as acceptable?** Reading `component-parity.md`, `test-parity.md`
+and `translation-parity.md` Round nine/ten updates: no. Each still says,
+in the first person, that `test/drive_qt.rb` has never completed and that
+nobody has watched the Qt frontend produce a single pixel. `PORTING.md`'s
+banner change (naming `drive:qt` and `nix develop .#qt` explicitly, rather
+than silently dropping it from the drive count) is the correct fix for
+round eight's own finding — it stopped the undercount from recurring,
+rather than redefining "drive" to mean "the three drivers that work."
+
+**Verdict, round ten: clean=false, unchanged in substance from round
+nine.** The six GTK/libadwaita units are reconfirmed running (248/248
+driver checks, 75/75 spec examples, reproduced by me this round — see the
+other four reports' round ten sections). The Qt/Kirigami frontend
+(`lib/qt_application.rb`, `data/qt/main.qml`, `test/drive_qt.rb`) and the
+Flatpak packaging unit (`com.pojtinger.felicitas.Sessions.json`,
+`.github/workflows/flatpak.yaml`) remain written but never observed to
+work, honestly and currently documented as such in every report that
+touches them — which is why this round's `clean` is false, not why it is
+excused.

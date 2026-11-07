@@ -156,3 +156,46 @@ gate's "16 components, drive_ok=true, 245 passed" is accurate for what it
 measures, but it does not cover this unit or the Flatpak packaging unit; a
 reader who takes the gate as describing the whole port, rather than six of
 eight recorded units, is misled by omission. See `accountability-ensurance.md`.
+
+---
+
+## Round ten — independent re-verification, Qt gap confirmed still open
+
+I reproduced this round's own runtime gate myself rather than take the
+prior round's numbers on faith:
+
+```
+$ nix develop --command xvfb-run -a rake check
+75 examples, 0 failures
+173 of 173 checks passed    (drive:main_window)
+1 of 1 checks passed        (drive_translations_fr_window, run as a step of drive:translations)
+53 of 53 checks passed      (drive:translations)
+21 of 21 checks passed      (drive:high_contrast)
+DRIVE OK, exit 0
+```
+
+173 + 1 + 53 + 21 = **248 driver checks, 0 failed** — this matches the
+round's stated runtime gate (248 passed, 0 failed) exactly, and the fourth
+number (the French-window driver's own "1 of 1") is the one the round-nine
+update in `test-parity.md` left out of its own 247 arithmetic; noted there
+too this round.
+
+**Unit 7 (Qt) did not move.** I did not re-attempt the ~28+ minute
+`ruby-qt6-qtwidgets` C++ build a third time inside this audit — three
+separate rounds (contention, wrong shell, build-time-exceeds-budget) have
+each independently confirmed `test/drive_qt.rb` has never once completed, in
+either shell, against any commit. Re-running the same multi-hundred-second
+build a fourth time to get the same "still compiling" answer would not add
+information; the finding is settled: **`lib/qt_application.rb` and
+`data/qt/main.qml` exist, are wired into `rake drive:qt`, and have never
+been observed to run, by any round.** That is a real, standing parity gap,
+not a formality — a second complete frontend over the same state machine
+that nobody has watched produce a single pixel. It alone is sufficient to
+keep this port off "clean" regardless of how the six GTK/libadwaita units
+score.
+
+**Unit 8 (Flatpak) did not move either** — `which flatpak flatpak-builder`
+is still empty in this environment, reconfirmed.
+
+Verdict stands: **6 of 7 identified units observed running; the Qt unit and
+the Flatpak unit are not**, across ten rounds now.

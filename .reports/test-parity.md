@@ -165,3 +165,29 @@ completion in the default shell: `75 examples, 0 failures` plus
 `translation-parity.md` for the French wrapping check added this round) +
 21 (`high_contrast`) = 247 driver checks, 0 failed, `DRIVE OK`, exit 0 — the
 exact command the shell's own banner now correctly describes.
+
+**Round nine's own arithmetic undercounted by one driver script.** The
+French-window check runs as `test/drive_translations_fr_window.rb`, a
+separate process `test/drive_translations.rb` shells out to, and it prints
+its own "1 of 1 checks passed / DRIVE OK" line distinct from the German
+driver's "53 of 53". 173 + 1 + 53 + 21 = **248**, matching this round's
+stated runtime gate (248 passed, 0 failed) exactly — the 247 figure above is
+corrected here, not restated.
+
+---
+
+## Round ten — reconfirmed by me, numbers unchanged except the 247→248 correction above
+
+Ran `nix develop --command xvfb-run -a rake check` myself, to completion,
+in the default shell: `75 examples, 0 failures`, then 173/173, 1/1, 53/53,
+21/21 — 248 driver checks, 0 failed, exit 0. `HEAD` has not moved past
+`5b718d6` since round nine wrote the above, so there was nothing new to
+reconcile in the spec suite or the three default-shell drivers.
+
+**`drive:qt` is still not part of `rake check` and has still never been run
+to completion by any round** — see `component-parity.md` Unit 7. The 42/42
+upstream-case mapping and the 75-example suite are the state-machine layer
+only; the Qt frontend's own behaviour (does `lib/qt_application.rb` actually
+drive the same state machine correctly from a QML UI) has zero test
+coverage of any kind, driver or spec, because the one script written to
+exercise it has never finished running.

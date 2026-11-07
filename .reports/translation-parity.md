@@ -159,3 +159,25 @@ fitting the button cleanly, no clipping or forced resize; there is no
 reliable pixel assertion for "wrapped correctly" so, consistent with the
 rest of this harness, that is a looked-at-the-picture check, not a
 numeric one.
+
+---
+
+## Round ten — independently reconfirmed, one gap this axis still cannot close
+
+I re-ran the msgid diff and the per-catalogue `cmp` myself against
+`origin/main` rather than inherit round nine's numbers: 33/33 msgids
+present (one non-key wrapped-continuation line, as before), all 26 `.po`
+byte-identical, confirmed again by actually running
+`nix develop --command xvfb-run -a rake drive:translations`
+(German + French-window steps both pass, 53 + 1 checks) in this session.
+
+**What this axis still does not and cannot cover: the Qt/QML frontend.**
+`data/qt/main.qml` is byte-identical to upstream's `qt/main.qml`. Since
+`test/drive_qt.rb` has never completed in any shell (see
+`component-parity.md` Unit 7), nobody has ever confirmed on screen that the
+Qt frontend renders any of its strings correctly — a gap this report had
+not previously named explicitly, because the GTK-side 33/33 count is, on
+its own terms, genuinely complete. Translation parity on the GTK frontend:
+**holds, 33/33, confirmed by me**. Whether the Qt frontend's own on-screen
+text is correct: **unknown**, because the frontend itself has never been
+observed running.

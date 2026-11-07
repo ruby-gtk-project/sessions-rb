@@ -95,3 +95,20 @@ against the `origin/main` worktree; all still identical.
 Same as round six's rules — every widget type carries its CSS classes and
 signals, no scan row struck without opening the file, dynamic CSS classes
 and the two dynamic action-button states listed with every value.
+
+---
+
+## Round ten — independent adversarial re-check, no new unit found or lost
+
+`HEAD` is unchanged from round nine's `5b718d6`; no commit since has touched
+`lib/`, `exe/`, `qt/`, `data/qt/` or either `.blp`. I re-ran
+`.claude/skills/component-identification/scripts/component-scan.sh` myself
+over the current `ruby` tree and re-diffed `git ls-tree -r --name-only
+origin/main` against this round's inventory rather than trust round eight/
+nine's totals. Same shape: 62 port rows / 24 upstream rows over the six
+GTK/libadwaita files; the Qt unit (`qt/main.go`, `qt/main.qml` vs
+`lib/qt_application.rb`, `data/qt/main.qml`) is still invisible to the
+regex-based scan on both sides, for the same reason as before (no
+`Gtk::Builder`/blueprint shape for the scan to key on). Nothing in this
+report changes; the seven-unit list above is confirmed current, not carried
+forward unread.
