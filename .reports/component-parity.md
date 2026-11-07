@@ -100,6 +100,29 @@ shell — the same "never finished in the time a round has" story round
 seven told about the wrong shell. **Owner: unassigned. Status: written,
 never driven to completion by any round, against either shell.**
 
+**Round nine update — still not driven to completion, further confirmation
+of the same build-time story.** Ran
+`nix develop .#qt --command xvfb-run -a rake drive:qt` in the background
+with a 1700s budget, with the rest of this round's work going on in the
+default shell concurrently (no shared-machine contention claim possible
+this time — the nix-daemon was uncontended on this host). `cc1plus` was
+still compiling `ruby-qt6-qtwidgets`'s individual widget-binding source
+files one at a time (`bando-qlistview-rb.cpp`, `bando-qmainwindow-rb.cpp`,
+`bando-qprogressdialog-rb.cpp`, `bando-qrubberband-rb.cpp`, confirmed via
+`ps` at several points) when the 1700s timeout killed it —
+`error: interrupted by the user`, the same Nix message as the prior
+round's `ruby-qt6-rice` kill. This is real forward progress: it got past
+`ruby-qt6-rice` and well into `ruby-qt6-qtwidgets`'s own source list
+(alphabetically past "r", confirming dozens of individual `.cpp`
+compilations run sequentially, not a hang), but there was not enough
+budget in this round to see it either finish or fail for a code reason.
+Unit 7 remains: **written, never driven to completion, against either
+shell, by any round** — now for a third reason in as many rounds (round
+seven: shared-machine contention; round eight: uncontended but the wrong
+shell had no Qt gem at all; round nine: uncontended, correct shell,
+genuinely just a very long single-threaded C++ build that a ~28-minute
+budget was not enough for).
+
 ---
 
 ## Unit 8 — the Flatpak manifest and workflow: unchanged, still unbuilt
