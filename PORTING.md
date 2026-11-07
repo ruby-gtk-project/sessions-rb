@@ -6,6 +6,7 @@
 | Port | `ruby` (GTK4 + Libadwaita through ruby-gnome) |
 | Parity reports | `.reports/component-parity.md`, `.reports/test-parity.md`, `.reports/translation-parity.md`, `.reports/accountability-ensurance.md` |
 | Root ledgers | `COMPONENT_PARITY.md`, `TEST_PARITY.md`, `TRANSLATION_PARITY.md`, `FINDINGS.md` |
+| Last accountability round | round seven, `.reports/accountability-ensurance.md` — **clean=false** |
 
 This file is the resume point. It records what exists, what does not, and what
 the last audit found wrong; it grants no permission to skip anything listed
@@ -20,8 +21,9 @@ sets a 30s-to-1h duration, a time label overlays it, and minus / start-stop /
 plus buttons run the countdown, which ends in a blinking label, a notification
 and an alarm sound. It is implemented in Go (puregotk bindings over GTK4 and
 libadwaita), with its widget trees written in blueprint (`.blp`) files compiled
-into a GResource. It also ships a second, independent Qt/QML frontend over the
-same state machine.
+into a GResource. It also ships a second, independent Qt/QML frontend
+(`qt/main.go`, `qt/main.qml`) over the same state machine. This is a Ruby port
+(GTK4 + Libadwaita via ruby-gnome, `gtk4`/`adwaita` gems) of both frontends.
 
 The spec lives on the `origin/main` ref of this repo. Read it with
 `git show origin/main:<path>` and `git ls-tree -r --name-only origin/main`.
@@ -31,8 +33,10 @@ Never check it out, never merge it.
 
 ## Done
 
-Components implemented and believed complete. One upstream source file, one
-`lib/*.rb`.
+Components with a Ruby counterpart that a driver or spec has actually
+exercised at some round. One upstream source file, one `lib/*.rb`. The caveat
+below the table is load-bearing: do not read this table as current proof that
+the app runs today — see **Runtime**.
 
 | Port | Upstream |
 |---|---|
@@ -68,28 +72,68 @@ about dialog's four invented link rows are gone this round, which leaves it with
 one recorded extra (`comments`, from the metainfo, which upstream's dialog does
 not show) and no msgid of its own.
 
-All three drivers were last run green, by `rake drive`:
+All three drivers' last **confirmed** run, by `rake drive`, at commit
+`14fcee4`:
 
 | Driver | Checks | Screenshots |
 |---|---|---|
-| `test/drive_main_window.rb` | 173 | 11 |
+| `test/drive_main_window.rb` | 175 | 11 |
 | `test/drive_translations.rb` | 51 | 6 |
 | `test/drive_high_contrast.rb` | 21 | 5 |
+
+`HEAD` is now 8 commits past `14fcee4` (`83cfb05`, `bf51215`, `bfcf14f`,
+`0f80f06`, `99f75f9`, `f7a6bd1`, `aa49212`, `ca7988e`, `9623029`, `121bf1d`).
+None of those commits touched the files the table above lists as Done, and
+`.reports/accountability-ensurance.md` (round seven) independently re-read
+`lib/about_dialog.rb`, `po/sessions.pot` and `lib/dial.rb` to confirm the
+about-dialog and high-contrast fixes are still in the tree as described. But
+nobody has re-run the drivers or the spec suite *against* `ca7988e` or later
+and watched them pass — see **Runtime**. The 175/0/21-checks numbers above are
+a claim about commit `14fcee4`, not about `HEAD`.
+
+---
+
+## Runtime
+
+Last attempted command, this round:
+
+```
+nix develop --command xvfb-run -a ruby test/drive_main_window.rb
+```
+
+**Result: not observed.** `drive_ok=false`, 0 checks passed / 0 failed, 0
+components covered, specs not attempted. The command was started and did not
+return a result inside the time this round had. `ps aux` during the attempt
+showed another session on this shared machine running `cc1plus` against
+`ruby-qt6-rice`'s C++ extension (`qtbase`/`qtdeclarative`/`qtwidgets` headers)
+at a load average that kept `nix develop`'s own evaluation from finishing —
+the same contention `.reports/accountability-ensurance.md` (round seven) and
+`COMPONENT_PARITY.md`'s Qt-frontend unit both record for their own attempts.
+`flake.nix`'s single `devShells.default` pulls in the Qt native-extension
+build unconditionally, so *any* use of the devshell pays that cost first, even
+to drive the GTK-only frontend, which never loads Qt.
+
+`rake spec` was not attempted this round for the same reason; it needs the
+same devshell. Nothing in this section is a claim that the port is broken —
+only that nothing executed it this round, on this machine, in the time
+available.
 
 ---
 
 ## Not started
 
-Upstream components with no Ruby counterpart at all.
+Upstream components with no Ruby counterpart at all. (`qt/main.go`,
+`qt/main.qml` and the Flatpak manifest are no longer on this list — they have
+port files now, `lib/qt_application.rb`/`exe/sessions-qt`/`data/qt/main.qml`
+and `com.pojtinger.felicitas.Sessions.json`/`.github/workflows/flatpak.yaml` —
+but neither has been run to completion in this environment, so they are
+carried under **Open gaps** instead of here or **Done**.)
 
 | Upstream | Port |
 |---|---|
-| `qt/main.go`, `qt/main.qml` — a whole second frontend over `pkg/state` | nothing |
-| `com.pojtinger.felicitas.Sessions.json` — the Flatpak manifest | nothing |
-| `.github/workflows/flatpak.yaml` | nothing |
-| `LICENSE` — the full AGPL v3 text | `LICENSE.md`, md5-identical to upstream's (`4ae09d45eac4aa08d013b5f2e01c67f6`); this row is closed, and it was closed when the previous revision said the file did not exist |
 | `sessions.doap` | nothing |
 | `assets/meta/screenshot-initial.png`, `screenshot-running.png` | nothing; the port's metainfo cites upstream's `raw.githubusercontent.com` URLs |
+| `README.md` tutorial section | nothing; `README.md` here is gem boilerplate |
 
 Nothing here has an owner. A row closes when the behaviour is in the port.
 
@@ -97,61 +141,39 @@ Nothing here has an owner. A row closes when the behaviour is in the port.
 
 ## Open gaps
 
-The last accountability audit (`.reports/accountability-ensurance.md`) reported
-**10 hits** and `clean=false`. All ten were in the ledgers, not in `lib/` or
-`exe/` — those two trees scan clean for deferral markers. The pattern it names:
-a true sentence about why work is hard, placed where the reader looks for
-whether the work is owed.
+The last accountability audit, round seven (`.reports/accountability-ensurance.md`),
+reported **`clean=false`**, on one finding: `.reports/drive-verification.md`
+asserted `DRIVE OK` / `175 of 175 checks passed`, unmodified since commit
+`14fcee4`, while `HEAD` had moved 8 commits past it (the dial's high-contrast
+fix, the About-dialog fix, the German-translation assertions, the whole Qt
+port, and the Flatpak manifest) — and nobody had re-run the drivers against
+the newer tree before that file kept being cited as current evidence. The
+round tried to reconfirm the number itself and could not, inside its time
+budget, for the reason recorded under **Runtime**; `.reports/drive-verification.md`
+has since been rewritten to say **unconfirmed since `14fcee4`** rather than
+restate the old green with a new date on it. `lib/` and `exe/` still scan
+clean for deferral markers (`TODO`/`FIXME`/`not implemented`/`for now`), as
+they did in round six.
 
-All ten are rewritten as of this round, and the audit's own eight "rewrites
-owed" with them; the list is kept rather than deleted so that the next reader
-can check the rewrites instead of trusting that they happened. Each entry now
-says what it said and what it says instead:
+The same round also found, and fixed in the ledgers rather than just noting,
+two *other* ledgers describing bugs the tree no longer has:
+`.reports/translation-parity.md`'s "not at parity, 4 extra msgids" (the four
+extra msgids were removed at `83cfb05`) and `.reports/component-identification.md`'s
+"Qt frontend has no port counterpart" (written at `0f80f06`). Those are
+corrected in the current `.reports/*.md`, which this file does not duplicate.
 
-1. `COMPONENT_PARITY.md` — three gap entries carried a `Why it is hard:` line inside the gap. The phrase is gone from the file: the Qt and Flatpak rows say "What is in the way (not a reason to stop)" and the About-dialog row is closed outright.
-2. The Flatpak gap's "because" slot held an environment constraint instead of the admission. It now opens with "I have not written a Flatpak manifest", carries an `Owner:` that closes only when `flatpak install` gets somebody the app, and names the two load-bearing finish-args (`--socket=pulseaudio` for the alarm, portal access for `lib/background_portal.rb`).
-3. The Qt row could close "or upstream drops the frontend". It now closes only when a Plasma user can run this port, and its real size — 46 + 52 lines, not 87 + 121 — is in the entry.
-4. The GResource entry said "nothing user-visible depends on this" and "I am not planning to add a bundle", and the About-dialog gap leaned on it. The About-dialog gap is closed and the entry now says what the missing bundle actually costs: the appdata constructor takes a resource path, which is why `lib/metainfo.rb` exists.
-5. `COMPONENT_PARITY.md` carried a literal `n/a` in the Upstream column. It names `go.mod` / `go.sum` now: an `n/a` in a parity table claims upstream has nothing there, and upstream pins its dependencies in two files. The two "no upstream file" slots in the **Done** table above are named too.
-6. `TEST_PARITY.md:8` — the green was real but unreachable. 45 examples did run, under `rspec --options /dev/null --require spec_helper --format progress spec`; what failed was every documented spelling, because `.rspec` ended in `--format RspecJunitFormatter` and that gem is not in the dev shell's `GEM_PATH`. Restating it as "zero examples have been executed" was wrong in the other direction. Fixed this round: the two formatter lines are out of `.rspec`, `bin/rspec` exists, and `rake spec`, `rspec spec` and `bin/rspec spec` all run the suite — 75 examples, 0 failures.
-7. `TEST_PARITY.md` had neutral noun-phrase headings where the other ledgers write first person. The one open entry there now reads "I have not written a spec suite for the widget layer, only drivers"; the other two are closed.
-8. "so this is not a parity gap against upstream" led a gap entry with a reason to stop reading. The entry now says that recording it does not make it smaller, and counts what the drivers actually are: 245 checks a human has to read the output of.
-9. `PORTING.md:29` (the previous revision) — "or a decision not to ship one" pre-authorised skipping the Flatpak manifest in the first file a new agent reads.
-10. `PORTING.md:18-21` (the previous revision) — the cursor table repeated the false green and claimed "all GTK components ported and observed", which the dial's two high-contrast gaps contradict.
-
-The substantive parity gaps those ledgers are supposed to carry:
+The substantive parity gaps the ledgers carry, independent of the
+accountability finding above:
 
 | Gap | Reports |
 |---|---|
-| No Flatpak manifest — upstream is installable from a Flatpak remote, this port by Nix users only | component, unit 2 |
-| Qt/QML frontend absent — `qt/main.go` (46 lines) and `qt/main.qml` (52 lines) | component, no unit |
-| DOAP record and both screenshots absent; the metainfo cites upstream's `raw.githubusercontent.com` images | component, no unit |
-| Widget layer has drivers, not a spec suite | test |
-| Catalogues are not wired into the gem build, so a released gem is English-only | translation |
-| The 360px window has never been seen in a long-string language (`ca`, `pt_BR`, `uk`) | translation |
-
-Closed this round, each by a run rather than a reading:
-
-- The dial's two high-contrast defects are fixed. `lib/dial.rb#stroke_pie`
-  strokes the wedge it filled, radial edges included, and the full circle when
-  the arc closes into a ring (`dial.go:421-422`, `:432-433`);
-  `#stroke_start_cap` sweeps counter-clockwise through `arc_negative`
-  (`dial.go:457-458`).
-- The branch they live on is now executed. `test/drive_high_contrast.rb` turns
-  high contrast on through `ADW_DEBUG_HIGH_CONTRAST`, renders the dial in five
-  states and reads the pixels back: with the two fixes reverted it fails six
-  checks, which is what makes its green worth having.
-- The about dialog's four invented link rows and their four msgids are gone.
-  `po/sessions.pot` now holds the same 33 msgids as upstream's, with the same
-  four TRANSLATORS comments.
-- The suite runs. `rake spec`, `rspec spec` and `bin/rspec spec` all give 75
-  examples, 0 failures, and `rake drive` runs all three drivers.
-- `lib/metainfo.rb` and `lib/settings.rb` have specs, the second of them
-  covering both of upstream's two schema-construction paths.
-- All 33 msgids are now observed resolving in German, where four were before:
-  `test/drive_translations.rb` is 51 checks over six screenshots, and it
-  asserts each string through the component that marks it, because
-  `bindtextdomain` binds per class ancestry.
+| Flatpak manifest (`com.pojtinger.felicitas.Sessions.json`) is written but never run through `flatpak-builder` — this environment has no `flatpak`/`flatpak-builder` binary at all | `COMPONENT_PARITY.md` |
+| Qt/QML frontend (`lib/qt_application.rb`, `exe/sessions-qt`, `data/qt/main.qml`) is written but `test/drive_qt.rb` has never been run to completion — every attempt has been stopped by the shared machine still compiling `ruby-qt6-*`'s native extensions when the attempt had to give up | `COMPONENT_PARITY.md`, `.reports/component-identification.md` |
+| DOAP record and both screenshots (`sessions.doap`, `assets/meta/screenshot-{initial,running}.png`) absent; the metainfo cites upstream's `raw.githubusercontent.com` images | `.reports/component-identification.md` |
+| Widget layer has drivers (245 checks a human has to read the output of), not a spec suite | `TEST_PARITY.md` |
+| Catalogues are not wired into the *gem* build — `sessions-rb.gemspec` builds no `.mo` files, so `gem install sessions-rb` is English-only while `rake install_data` is translated | `TRANSLATION_PARITY.md` |
+| The 360px window has never been seen in a long-string language (`ca`, `pt_BR`, `uk`) | `.reports/translation-parity.md` |
+| None of the above — nor the Done table's claims — have been re-run against current `HEAD`; see **Runtime** | `.reports/accountability-ensurance.md` |
 
 ---
 
@@ -160,6 +182,28 @@ Closed this round, each by a run rather than a reading:
 Things that cannot be ported as upstream wrote them, and why. These explain
 difficulty; none of them closes a gap row.
 
+- **This environment has no `flatpak` or `flatpak-builder` binary at all.**
+  `com.pojtinger.felicitas.Sessions.json` is written (262 lines, builds Ruby
+  3.4.2 itself as a module since `org.freedesktop.Sdk.Extension.ruby` was
+  removed from freedesktop-sdk as of 25.08, then installs the gemspec's
+  runtime gems from a vendored `.gem` cache), but whether it actually builds —
+  whether Ruby's `./configure` finds what it needs in `org.gnome.Sdk`, whether
+  `bundle install --local` resolves from the vendored cache with no network,
+  whether the native gem extensions find GTK4 through the SDK's own
+  `pkg-config` — cannot be answered without the `flatpak-builder` tool, which
+  this environment does not have. Owner: **unassigned**.
+- **The Qt/QML frontend cannot be driven on this shared machine in the time
+  any single round has had.** `lib/qt_application.rb`, `exe/sessions-qt` and
+  `data/qt/main.qml` are written, and `flake.nix` builds the `ruby-qt6-*`
+  Rice/C++ extensions (against qtbase/qtdeclarative/qtwidgets) to support
+  them — but that native build is itself slow, and every attempt to drive
+  either frontend in this round and in round seven's audit found other
+  sessions on the same box compiling those same extensions concurrently, with
+  load average high enough that neither `nix develop` nor the extension build
+  it was waiting on finished. This round's own attempt (see **Runtime**) is a
+  third independent reproduction of the same contention. Not a defect in the
+  Qt port itself — `test/drive_qt.rb` has simply never run to completion
+  against this tree. Owner: **unassigned**.
 - **The dial cannot be a GSK-snapshot `Gtk::Widget` subclass.** Upstream
   overrides the `snapshot` vfunc and draws with `Gsk::PathBuilder`,
   `Gsk::Stroke` and `Graphene::Point`, none of which the Ruby bindings expose.
