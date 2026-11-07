@@ -1,4 +1,37 @@
-# Drive verification — sessions-rb, round five
+# Drive verification — sessions-rb, round six
+
+**Status: unconfirmed since `14fcee4`.** Everything below the line is what
+round five observed; this round could not reproduce it and the file was
+wrongly left to assert `DRIVE OK` as if it still described the current tree.
+
+| | |
+|---|---|
+| Branch | `ruby` |
+| Attempted this round | `nix develop --command xvfb-run -a ruby test/drive_main_window.rb` |
+| Result this round | **Not observed.** `nix develop` never finished evaluating/building the
+devshell's closure inside this round's time budget. |
+| Cause | `flake.nix` has a single `devShells.default` that unconditionally pulls in
+`qtGems` (the `ruby-qt6-*` Rice/C++ extensions against qtbase/qtdeclarative/qtwidgets),
+so *any* use of the devshell — even to drive the GTK frontend, which never
+loads Qt — pays for compiling those extensions first. `ps aux` during this
+round's attempt showed several other `nixbld*` users compiling
+`ruby-qt6-qtwidgets` and other large native extensions concurrently on this
+shared build box, and `cc1plus` was still running on `.cpp` translation units
+well past the point this round had to give up. This is build-machine
+contention, not a defect in the drive script or the port.
+| Specs | Not attempted this round for the same reason; `rake spec` needs the same devshell. |
+
+Nothing in this file below "round five" has been re-observed. Treat every
+check count under it as a claim from a prior round, not a current fact. The
+root ledgers (`COMPONENT_PARITY.md`, `TEST_PARITY.md`, `TRANSLATION_PARITY.md`)
+are the ones to check for whether a later round re-ran these drivers; this
+file should be regenerated from an actual run — not hand-edited to assert a
+result — the next time the shared machine has capacity, and on the same
+cadence as those root ledgers so it cannot go stale silently again.
+
+---
+
+## Round five (last confirmed run, now unconfirmed against HEAD)
 
 | | |
 |---|---|
@@ -8,7 +41,7 @@
 | German | `nix develop --command xvfb-run -a ruby test/drive_translations.rb` — `5 of 5` / `DRIVE OK` |
 | Specs | `nix develop --command rspec --options /dev/null --require spec_helper --format progress spec` — 45 examples, 0 failures |
 
-## Components exercised
+### Components exercised
 
 All fifteen classes under `lib/`, plus the two entry shims:
 
@@ -25,9 +58,9 @@ are opened, read, closed and rebuilt, and the empty state (the shortcuts
 dialog with a search that matches nothing) and the refusal states (the dial at
 its ceiling and its floor) are both driven and screenshotted.
 
-## Defects this round found by running the app
+### Defects that round found by running the app
 
-### 1 — The About dialog showed its description in twenty languages at once
+#### 1 — The About dialog showed its description in twenty languages at once
 
 `lib/metainfo.rb` read every `description/p` and `description/ul/li` out of
 `data/com.pojtinger.felicitas.Sessions.metainfo.xml`. That file is the
@@ -46,7 +79,7 @@ Fixed: `Metainfo#untranslated` rejects nodes carrying `xml:lang`. Pinned by
 `the comments are in one language, not twenty` and `no translation leaked into
 the comments`.
 
-### 2 — The driver re-armed its whole step chain on a second activation
+#### 2 — The driver re-armed its whole step chain on a second activation
 
 `test/gtk_driver.rb` connected `schedule` to `activate`. This port's
 `app.stopAlarmPlayback` calls `@app.activate` to bring the window back after
@@ -54,7 +87,7 @@ the notification is clicked — upstream behaviour, correctly ported — so
 driving that action started a second, interleaved run of every step. Fixed
 with a one-shot guard in the driver; no port code changed.
 
-## Binding limitations, not port bugs
+### Binding limitations, not port bugs
 
 - **`Gtk::Widget#activate` is a no-op on `Gtk::Button`.** It returns `nil` and
   does not activate the button's `action-name`. It fails silently, so a check
@@ -73,7 +106,7 @@ with a one-shot guard in the driver; no port code changed.
   `GIArgument(array/C)[interface(enum)]` defect that stopped Chess-Clock-rb
   and Junction-rb does not arise here.
 
-## Dev shell
+### Dev shell (as of round five)
 
 `flake.nix` had no `rspec` and no `RUBYLIB`, so `bundle exec rspec` answered
 `command not found` and the spec suite had never been run in the shell. Both
@@ -82,3 +115,9 @@ added, along with the banner naming the app, drive and spec commands.
 is not in the Nix gem bundle, so every example died before its first
 assertion. It is now rescued the same way `kettle-soup-cover` already was
 above it — the port's own specs use none of its helpers.
+
+Round six's note: the `qtGems` addition after round five is what now makes
+*every* use of this shell, including a GTK-only drive, pay the Qt native
+extension build. A future round should split the Qt frontend into its own
+`devShells.qt` so `nix develop` (the default) and `nix develop .#qt` are
+independent builds.

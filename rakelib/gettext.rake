@@ -325,3 +325,16 @@ task install_data: :build_data do
   sh("glib-compile-schemas", File.join(root, "share/glib-2.0/schemas"))
   sh("update-desktop-database", File.join(root, "share/applications"))
 end
+
+# `sessions-rb.gemspec` packages `po/**/*` with a `Dir.glob`, which only
+# finds what is already on disk when `rake build`/`rake install` evaluates
+# the gemspec — and `po/*/LC_MESSAGES/*.mo` is gitignored, built output.
+# Without this, `gem build` (and therefore `gem install sessions-rb`) shipped
+# only the 26 `.po` sources and no compiled catalogue, so `_()` and GLib's
+# own gettext binding both read nothing and the installed gem was
+# English-only even though `rake install_data` (which depends on
+# `gettext:mo` via `build_data`) was fully translated.
+#
+# `bundler/gem_tasks` (required at the top of the Rakefile) defines `build`;
+# this enhances it with a prerequisite rather than redefining it.
+task build: "gettext:mo"
