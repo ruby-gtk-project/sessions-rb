@@ -4,7 +4,7 @@
 |---|---|
 | Upstream | `origin/main` @ `ad77fb2` |
 | Port | `ruby` |
-| Verified by | `test/drive_main_window.rb` under `xvfb-run` — 175 checks, 11 screenshots in `tmp/shots/`; `test/drive_translations.rb` — 5 checks, 2 screenshots; `rspec` — 45 examples |
+| Verified by | `test/drive_main_window.rb` under `xvfb-run` — 173 checks, 11 screenshots in `tmp/shots/`; `test/drive_translations.rb` — 51 checks, 6 screenshots; `test/drive_high_contrast.rb` — 21 checks, 5 screenshots; `rspec` — 75 examples. Re-run and confirmed against current `HEAD` this round — see `PORTING.md` **Runtime**. |
 | Binding limits | `FINDINGS.md` |
 
 Every row is a behaviour, not a file. A row is closed when the behaviour is in
@@ -80,6 +80,20 @@ processes for the `ruby-qt6-*` gems' native extensions, at once); the process
 was still building past 25 minutes when this round had to stop waiting on it.
 That is contention evidence, not a verdict on the frontend — it says the
 *attempt* did not finish, not that the code is wrong.
+
+This round fixed the actual mechanism behind that contention rather than
+just re-describing it: `flake.nix`'s single `devShells.default` pulled in
+`qtGems` unconditionally, so *every* use of the devshell — including a
+GTK-only drive — paid for compiling `ruby-qt6-rice`'s C++ extensions first.
+The Qt frontend now has its own `devShells.qt` (`nix develop .#qt`), and
+`devShells.default` no longer carries `qtGems` or `qmlStack` at all — the
+three GTK drivers now run in seconds (confirmed this round, see
+`PORTING.md` **Runtime**). `test/drive_qt.rb` itself was attempted again
+under `nix develop .#qt` this round and again did not finish inside the
+round's time budget (the Qt native extensions still have to compile from
+source at least once in this environment's Nix store); that remaining cost
+is now isolated to the shell that actually needs it rather than blocking
+every other command in the port.
 Upstream: `qt/main.go`, `qt/main.qml`.
 Port: `lib/qt_application.rb`, `exe/sessions-qt`, `data/qt/main.qml`.
 Owner: **unassigned**. This row closes when `rake drive:qt` (or

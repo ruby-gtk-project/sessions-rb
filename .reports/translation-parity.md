@@ -93,12 +93,15 @@ that could confirm them, same as last round's confirmed gap.
 
 ## Still open, from `COMPONENT_PARITY.md` / `PORTING.md`, confirmed still true by reading rather than inherited
 
-- **The catalogues are not wired into the gem build.** Nothing in
-  `sessions-rb.gemspec` builds or packages the `.mo` files — confirmed by
-  reading the gemspec, which lists no `rake gettext:mo` dependency and no
-  `.mo` glob in its `files`. `gem install sessions-rb` ships English-only;
-  `rake install_data` ships translated. This is a real, standing gap, not
-  fixed by anything in this round's commits.
+- **The catalogues are now wired into the gem build.** `rakelib/gettext.rake`
+  ends with `task build: "gettext:mo"`, enhancing bundler's `build` task (the
+  Rakefile requires `bundler/gem_tasks`) so `rake build`/`rake install`
+  compiles the catalogues before `sessions-rb.gemspec`'s `Dir.glob` over
+  `po/**/*` runs and packages them. `gem install sessions-rb` is translated
+  the same as `rake install_data`. Confirmed by reading `rakelib/gettext.rake`
+  (commit `121bf1d`); not re-verified this round by an actual `gem build`
+  against this tree, since this round's time went to the runtime drivers
+  instead — see `PORTING.md` **Runtime**.
 - The 360px window has never been seen rendered in a long-string language
   (`ca`, `pt_BR`, `uk`) — no driver step changes the window width or forces
   wrapping; still true by inspection of `test/drive_translations.rb`.
@@ -111,9 +114,9 @@ that could confirm them, same as last round's confirmed gap.
 extra, 26/26 languages byte-identical.** The specific defect the prior
 `.reports/translation-parity.md` reported (4 invented, untranslated msgids)
 is fixed in the tree today and that report should not be read as current.
-What remains open is unchanged by this round's commits and was not something
-this round's commits touched: the gem-packaging gap, and the fact that most
-of the port's own translated strings have still only ever been observed in
-English, a observability gap this round could not close either, because the
-one driver that could run it would not finish inside the time the shared
-machine allowed.
+What remains open: the gem-packaging gap recorded above as fixed by `121bf1d`
+has not been re-verified this round by an actual `gem build`, and most of the
+port's own translated strings have still only ever been observed in English,
+an observability gap this round could not close either, because the one
+driver that could run it would not finish inside the time the shared machine
+allowed.

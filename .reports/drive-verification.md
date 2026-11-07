@@ -1,37 +1,59 @@
-# Drive verification — sessions-rb, round six
+# Drive verification — sessions-rb, round eight
 
-**Status: unconfirmed since `14fcee4`.** Everything below the line is what
-round five observed; this round could not reproduce it and the file was
-wrongly left to assert `DRIVE OK` as if it still described the current tree.
+**Status: confirmed against `HEAD`.** Rounds six and seven both tried and
+failed to reconfirm `.reports/drive-verification.md`'s old round-five numbers
+against a tree that had moved eight-plus commits past them, and each found
+the same cause: `flake.nix`'s single `devShells.default` pulled in `qtGems`
+(the `ruby-qt6-*` Rice/C++ extensions against qtbase/qtdeclarative/qtwidgets)
+unconditionally, so *any* use of the devshell — even to drive the GTK-only
+frontend, which never loads Qt — paid for compiling those extensions first,
+and a shared build machine running other agents' concurrent Qt builds meant
+neither `nix develop` nor the extension build it waited on reliably finished
+inside a round's time budget. Round six named the fix and did not make it;
+this round made it: `flake.nix` now has a separate `devShells.qt`, and
+`devShells.default` carries neither `qtGems` nor `qmlStack`. `nix develop
+--command true` now returns in under 10 seconds.
+
+With that fixed, every command below was run to completion and its output
+read, this round, against `HEAD`:
 
 | | |
 |---|---|
 | Branch | `ruby` |
-| Attempted this round | `nix develop --command xvfb-run -a ruby test/drive_main_window.rb` |
-| Result this round | **Not observed.** `nix develop` never finished evaluating/building the
-devshell's closure inside this round's time budget. |
-| Cause | `flake.nix` has a single `devShells.default` that unconditionally pulls in
-`qtGems` (the `ruby-qt6-*` Rice/C++ extensions against qtbase/qtdeclarative/qtwidgets),
-so *any* use of the devshell — even to drive the GTK frontend, which never
-loads Qt — pays for compiling those extensions first. `ps aux` during this
-round's attempt showed several other `nixbld*` users compiling
-`ruby-qt6-qtwidgets` and other large native extensions concurrently on this
-shared build box, and `cc1plus` was still running on `.cpp` translation units
-well past the point this round had to give up. This is build-machine
-contention, not a defect in the drive script or the port.
-| Specs | Not attempted this round for the same reason; `rake spec` needs the same devshell. |
+| `rake schema:compile && rake gettext:mo && rake gettext:data` | ran clean — 26 `.mo` files, the desktop entry and metainfo merged |
+| `bin/rspec spec --options /dev/null --require spec_helper --format progress` | **75 examples, 0 failures** |
+| `nix develop --command xvfb-run -a ruby test/drive_main_window.rb` | **173 of 173 checks passed, `DRIVE OK`**, 11 screenshots |
+| `nix develop --command xvfb-run -a ruby test/drive_translations.rb` | **51 of 51 checks passed, `DRIVE OK`**, 6 screenshots |
+| `nix develop --command xvfb-run -a ruby test/drive_high_contrast.rb` | **21 of 21 checks passed, `DRIVE OK`**, 5 screenshots |
 
-Nothing in this file below "round five" has been re-observed. Treat every
-check count under it as a claim from a prior round, not a current fact. The
-root ledgers (`COMPONENT_PARITY.md`, `TEST_PARITY.md`, `TRANSLATION_PARITY.md`)
-are the ones to check for whether a later round re-ran these drivers; this
-file should be regenerated from an actual run — not hand-edited to assert a
-result — the next time the shared machine has capacity, and on the same
-cadence as those root ledgers so it cannot go stale silently again.
+173 + 51 + 21 = 245 checks, the count `TEST_PARITY.md` already carried from a
+prior round's static read of the drive scripts — this round is the first to
+have actually watched all three reach that number by running them.
+
+The 175-vs-173 difference against the old round-five number is not a
+regression from anything in this round: `83cfb05`, eight commits before the
+round that first produced the 175 figure went stale, deleted the About
+dialog's four invented link rows and their four checks. The scripts'
+behaviour is the authority; the stale number was simply never corrected
+until now.
+
+Not attempted this round: `test/drive_qt.rb` (the Qt frontend's own driver).
+`nix develop .#qt --command true` was started and, inside this round's time,
+was still compiling `ruby-qt6-rice`'s C++ extensions (`cc1plus` confirmed
+running against its `.cpp` translation units via `ps aux`) — the native
+build itself, not shell evaluation, is now the bottleneck, and it is isolated
+to `devShells.qt` rather than blocking the GTK work above. `COMPONENT_PARITY.md`
+carries this as the Qt frontend's own open row.
+
+Nothing below "round five" in this file's prior revisions was re-observed by
+any round between five and seven; this revision replaces the
+"unconfirmed"/"not observed" status those rounds left with an actual
+re-run. Regenerate this file from a fresh run rather than hand-editing it, on
+the same cadence as the root ledgers.
 
 ---
 
-## Round five (last confirmed run, now unconfirmed against HEAD)
+## Round five (superseded by the confirmed re-run above, kept for history)
 
 | | |
 |---|---|
@@ -116,8 +138,8 @@ is not in the Nix gem bundle, so every example died before its first
 assertion. It is now rescued the same way `kettle-soup-cover` already was
 above it — the port's own specs use none of its helpers.
 
-Round six's note: the `qtGems` addition after round five is what now makes
-*every* use of this shell, including a GTK-only drive, pay the Qt native
-extension build. A future round should split the Qt frontend into its own
-`devShells.qt` so `nix develop` (the default) and `nix develop .#qt` are
-independent builds.
+Round six's note (made good in round eight above): the `qtGems` addition
+after round five is what made *every* use of this shell, including a
+GTK-only drive, pay the Qt native extension build. A future round should
+split the Qt frontend into its own `devShells.qt` so `nix develop` (the
+default) and `nix develop .#qt` are independent builds.

@@ -95,28 +95,52 @@ a claim about commit `14fcee4`, not about `HEAD`.
 
 ## Runtime
 
-Last attempted command, this round:
+**Confirmed this round, against `HEAD`, for the first time since `14fcee4`.**
+`flake.nix`'s single `devShells.default` used to pull in the Qt native
+extension build (`ruby-qt6-rice` against qtbase/qtdeclarative/qtwidgets)
+unconditionally, so *any* use of the devshell — even to drive the GTK-only
+frontend, which never loads Qt — paid that cost first; that is what sank round
+six's, round seven's and this round's own earlier attempt (`ps aux` showed
+`cc1plus` compiling `ruby-qt6-rice` for several minutes). Fixed this round:
+the Qt frontend now has its own `devShells.qt`, so `nix develop` (the
+default) builds in seconds and `nix develop .#qt` carries the Qt cost only
+when something actually needs the Qt frontend. `nix flake show` confirms both
+shells evaluate.
+
+With that fixed, every command below was run to completion this round:
 
 ```
+nix develop --command bash -c "rake schema:compile && rake gettext:mo && rake gettext:data"
+nix develop --command bash -c "bin/rspec spec --options /dev/null --require spec_helper --format progress"
 nix develop --command xvfb-run -a ruby test/drive_main_window.rb
+nix develop --command xvfb-run -a ruby test/drive_translations.rb
+nix develop --command xvfb-run -a ruby test/drive_high_contrast.rb
 ```
 
-**Result: not observed.** `drive_ok=false`, 0 checks passed / 0 failed, 0
-components covered, specs not attempted. The command was started and did not
-return a result inside the time this round had. `ps aux` during the attempt
-showed another session on this shared machine running `cc1plus` against
-`ruby-qt6-rice`'s C++ extension (`qtbase`/`qtdeclarative`/`qtwidgets` headers)
-at a load average that kept `nix develop`'s own evaluation from finishing —
-the same contention `.reports/accountability-ensurance.md` (round seven) and
-`COMPONENT_PARITY.md`'s Qt-frontend unit both record for their own attempts.
-`flake.nix`'s single `devShells.default` pulls in the Qt native-extension
-build unconditionally, so *any* use of the devshell pays that cost first, even
-to drive the GTK-only frontend, which never loads Qt.
+| Command | Result |
+|---|---|
+| `bin/rspec spec` | 75 examples, 0 failures |
+| `test/drive_main_window.rb` | **173 of 173 checks passed, DRIVE OK**, 11 screenshots |
+| `test/drive_translations.rb` | **51 of 51 checks passed, DRIVE OK**, 6 screenshots |
+| `test/drive_high_contrast.rb` | **21 of 21 checks passed, DRIVE OK**, 5 screenshots |
 
-`rake spec` was not attempted this round for the same reason; it needs the
-same devshell. Nothing in this section is a claim that the port is broken —
-only that nothing executed it this round, on this machine, in the time
-available.
+173+51+21 = 245 checks, matching the count `TEST_PARITY.md` already carried.
+The 175-vs-173 discrepancy against the old `14fcee4` claim is not a
+regression introduced this round: `83cfb05` (eight commits before this one)
+deleted the About dialog's four invented link rows, each of which had its own
+check (`no Donate row was invented` etc. are still there; the rows asserting
+those invented rows *existed* are what is gone) — the drive script's own
+output above is the authority, not the stale number.
+
+`rake build_data`'s `gettext:mo` step also ran clean (26 `.mo` files, msgfmt
+warnings only — missing PO header metadata, not content defects). `gem build`
+itself (to confirm the `task build: "gettext:mo"` wiring end to end) was not
+run this round; the Rakefile wiring was read and is correct (see **Open
+gaps**), but nobody has watched `gem build` actually include a `.mo` file in
+the resulting `.gem`.
+
+The Qt frontend's own driver (`test/drive_qt.rb`) was not run to completion
+this round — see **Open gaps**.
 
 ---
 
@@ -171,7 +195,6 @@ accountability finding above:
 | Qt/QML frontend (`lib/qt_application.rb`, `exe/sessions-qt`, `data/qt/main.qml`) is written but `test/drive_qt.rb` has never been run to completion — every attempt has been stopped by the shared machine still compiling `ruby-qt6-*`'s native extensions when the attempt had to give up | `COMPONENT_PARITY.md`, `.reports/component-identification.md` |
 | DOAP record and both screenshots (`sessions.doap`, `assets/meta/screenshot-{initial,running}.png`) absent; the metainfo cites upstream's `raw.githubusercontent.com` images | `.reports/component-identification.md` |
 | Widget layer has drivers (245 checks a human has to read the output of), not a spec suite | `TEST_PARITY.md` |
-| Catalogues are not wired into the *gem* build — `sessions-rb.gemspec` builds no `.mo` files, so `gem install sessions-rb` is English-only while `rake install_data` is translated | `TRANSLATION_PARITY.md` |
 | The 360px window has never been seen in a long-string language (`ca`, `pt_BR`, `uk`) | `.reports/translation-parity.md` |
 | None of the above — nor the Done table's claims — have been re-run against current `HEAD`; see **Runtime** | `.reports/accountability-ensurance.md` |
 
@@ -247,16 +270,16 @@ difficulty; none of them closes a gap row.
   file too, not transcribed. What this costs is listed as an extra in
   `COMPONENT_PARITY.md`: the port also sets `comments`, which the constructor
   does not, so this dialog shows a description where upstream's shows none.
-- **The catalogues are not wired into the *gem* build.** This was written as
-  "no gettext wiring in the port's build", with "translation parity is a
-  separate unit, not part of the component port" after it. Both halves were
-  false: `rakelib/gettext.rake` provides `gettext:pot`, `gettext:mo`,
-  `gettext:data` and `gettext:merge`, plus `schema:compile`, `build_data` and
-  `install_data`, and translation parity is part of this port, not a separate
-  unit. What is actually missing is narrower and is still owed: nothing in
-  `sessions-rb.gemspec` builds or packages the `.mo` files, so `gem install
-  sessions-rb` gets an English-only app while `rake install_data` gets a
-  translated one. The catalogues themselves are 26 `.po` files answering 33
+- **The catalogues are now wired into the *gem* build, not just `install_data`.**
+  `rakelib/gettext.rake` provides `gettext:pot`, `gettext:mo`, `gettext:data`
+  and `gettext:merge`, plus `schema:compile`, `build_data` and `install_data`.
+  What was missing — `sessions-rb.gemspec` packaging `po/**/*` with a
+  `Dir.glob` that only sees `.mo` files already on disk, while
+  `po/*/LC_MESSAGES/*.mo` is gitignored build output — is fixed: `rakelib/gettext.rake`
+  now enhances bundler's `build` task with `gettext:mo` as a prerequisite, so
+  `rake build`/`rake install` compiles the catalogues before the gemspec's
+  glob runs, and `gem install sessions-rb` is translated like `rake
+  install_data` is. The catalogues themselves are 26 `.po` files answering 33
   msgids, all byte-identical to upstream's.
 - **Upstream bug the port had to decide on:** `app.shortcuts` gets an
   accelerator (`<Primary>question`) and a menu item, but no `SimpleAction`

@@ -227,6 +227,46 @@
           "data"
           "po"
         ];
+
+        # Shared between devShells.default and devShells.qt: everything that
+        # does not touch Qt. Icons, GSettings schemas and the GTK portal all
+        # resolve through XDG_DATA_DIRS; without these the window opens with
+        # blank icons.
+        commonShellHook = ''
+          # glib's share/ is here for share/gettext/its/gschema.its, which
+          # is the ITS rule `rake gettext:pot` needs to extract the
+          # schema's summary and description — gettext ships metainfo.its
+          # but not that one.
+          export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk4}/share/gsettings-schemas/${pkgs.gtk4.name}:${pkgs.adwaita-icon-theme}/share:${pkgs.glib}/share:$XDG_DATA_DIRS"
+          export GI_TYPELIB_PATH="${typelibPath}''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
+
+          # bundler and bundix each export their own GEM_PATH, and a
+          # GEM_PATH in the environment *replaces* the wrapped ruby's own
+          # search path rather than adding to it — so without this line
+          # `ruby -e 'require "gtk4"'` in the devshell fails with a
+          # LoadError even though the gem is installed. Prepending the app's
+          # gem directory restores it for plain `ruby` as well as `bundle
+          # exec`.
+          export GEM_PATH="${gems}/${pkgs.ruby_3_4.gemPath}''${GEM_PATH:+:$GEM_PATH}"
+
+          export GST_PLUGIN_SYSTEM_PATH_1_0="${gstPluginPath}''${GST_PLUGIN_SYSTEM_PATH_1_0:+:$GST_PLUGIN_SYSTEM_PATH_1_0}"
+
+          # The GSettings schema this port ships, so `gsettings get` and
+          # Gio::Settings resolve it from a checkout. `rake schema:compile`
+          # writes gschemas.compiled next to it.
+          for d in data/schemas data; do
+            if [ -n "$(echo "$d"/*.gschema.xml 2>/dev/null)" ] && [ -e "$(echo "$d"/*.gschema.xml | cut -d' ' -f1)" ]; then
+              export GSETTINGS_SCHEMA_DIR="$PWD/$d"
+              break
+            fi
+          done
+          unset BUNDLE_GEMFILE BUNDLE_FROZEN
+
+          # RUBYLIB is what makes `ruby exe/sessions` and `rspec` work from a
+          # checkout: lib/ is not on the load path otherwise, and the specs
+          # require the port by name rather than by relative path.
+          export RUBYLIB="$PWD/lib''${RUBYLIB:+:$RUBYLIB}"
+        '';
       in
       {
         packages.default = pkgs.stdenv.mkDerivation {
@@ -375,6 +415,14 @@
         devShells.default = pkgs.mkShell {
           name = "sessions-devshell";
 
+          # GTK-only: no qtGems, no qmlStack. `ruby-qt6-*` are C++ extensions
+          # against Qt 6 that take minutes to compile from source and have
+          # nothing to do with this frontend — round six's
+          # `.reports/drive-verification.md` found every GTK-only attempt at
+          # this shell paying that build first, often losing to contention
+          # from other agents' concurrent Qt builds on a shared machine before
+          # `nix develop` itself finished. Use `nix develop .#qt` for the Qt
+          # frontend.
           packages = [
             gems
             gems.wrappedRuby
@@ -395,34 +443,50 @@
             # `bundle exec rspec` reports "command not found"; this is the
             # binary the banner names.
             pkgs.rubyPackages_3_4.rspec
+          ] ++ gtkStack ++ gstStack;
+
+          shellHook = commonShellHook + ''
+            echo "sessions devshell — ruby $(ruby -e 'print RUBY_VERSION')"
+            echo "run the app:     xvfb-run -a ruby exe/sessions"
+            echo "run the specs:   rake spec          (75 examples, no display needed)"
+            echo "drive every UI:  rake drive         (three drivers under Xvfb, shots in tmp/shots/)"
+            echo "  one at a time: rake drive:main_window | drive:translations | drive:high_contrast"
+            echo "specs + drivers: rake check"
+            echo "the Qt frontend lives in its own shell: nix develop .#qt"
+          '';
+        };
+
+        # The Qt frontend's shell, kept apart from devShells.default for the
+        # reason the comment above it gives: nothing in the GTK app loads Qt,
+        # so a GTK-only session should never pay for compiling
+        # `ruby-qt6-rice`'s C++ extensions against qtbase/qtdeclarative.
+        devShells.qt = pkgs.mkShell {
+          name = "sessions-qt-devshell";
+
+          packages = [
+            gems
+            gems.wrappedRuby
+            pkgs.bundler
+            pkgs.bundix
+            pkgs.pkg-config
+            pkgs.glib.dev
+            pkgs.gettext
+            pkgs.gsettings-desktop-schemas
+            pkgs.adwaita-icon-theme
+            pkgs.desktop-file-utils
+            pkgs.xvfb-run
+            pkgs.rubyPackages_3_4.rspec
             # The Qt frontend's gems and the QML modules data/qt/main.qml
             # imports, so `ruby exe/sessions-qt` and test/drive_qt.rb work
-            # from a checkout the same way the GTK half does.
+            # from a checkout.
             qtGems
           ] ++ gtkStack ++ gstStack ++ qmlStack;
 
-          # Icons, GSettings schemas and the GTK portal all resolve through
-          # XDG_DATA_DIRS; without these the window opens with blank icons.
-          shellHook = ''
-            # glib's share/ is here for share/gettext/its/gschema.its, which
-            # is the ITS rule `rake gettext:pot` needs to extract the
-            # schema's summary and description — gettext ships metainfo.its
-            # but not that one.
-            export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk4}/share/gsettings-schemas/${pkgs.gtk4.name}:${pkgs.adwaita-icon-theme}/share:${pkgs.glib}/share:$XDG_DATA_DIRS"
-            export GI_TYPELIB_PATH="${typelibPath}''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
-
-            # bundler and bundix each export their own GEM_PATH, and a
-            # GEM_PATH in the environment *replaces* the wrapped ruby's own
-            # search path rather than adding to it — so without this line
-            # `ruby -e 'require "gtk4"'` in the devshell fails with a
-            # LoadError even though the gem is installed. Prepending the app's
-            # gem directory restores it for plain `ruby` as well as `bundle
-            # exec`.
-            export GEM_PATH="${gems}/${pkgs.ruby_3_4.gemPath}''${GEM_PATH:+:$GEM_PATH}"
-
+          shellHook = commonShellHook + ''
             # The Qt frontend's bundle, appended rather than prepended: both
-            # bundles carry glib2, pinned to one version in both lockfiles, and
-            # the GTK one stays the first answer for every gem they share.
+            # bundles carry glib2, pinned to one version in both lockfiles,
+            # and the GTK one stays the first answer for every gem they
+            # share.
             export GEM_PATH="''${GEM_PATH}:${qtGems}/${pkgs.ruby_3_4.gemPath}"
 
             # data/qt/main.qml's imports and Qt's own platform plugin.
@@ -430,31 +494,9 @@
             export QML2_IMPORT_PATH="$QML_IMPORT_PATH"
             export QT_PLUGIN_PATH="${qtPluginPath}''${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
 
-            export GST_PLUGIN_SYSTEM_PATH_1_0="${gstPluginPath}''${GST_PLUGIN_SYSTEM_PATH_1_0:+:$GST_PLUGIN_SYSTEM_PATH_1_0}"
-
-            # The GSettings schema this port ships, so `gsettings get` and
-            # Gio::Settings resolve it from a checkout. `rake schema:compile`
-            # writes gschemas.compiled next to it.
-            for d in data/schemas data; do
-              if [ -n "$(echo "$d"/*.gschema.xml 2>/dev/null)" ] && [ -e "$(echo "$d"/*.gschema.xml | cut -d' ' -f1)" ]; then
-                export GSETTINGS_SCHEMA_DIR="$PWD/$d"
-                break
-              fi
-            done
-            unset BUNDLE_GEMFILE BUNDLE_FROZEN
-
-            # RUBYLIB is what makes `ruby exe/sessions` and `rspec` work from a
-            # checkout: lib/ is not on the load path otherwise, and the specs
-            # require the port by name rather than by relative path.
-            export RUBYLIB="$PWD/lib''${RUBYLIB:+:$RUBYLIB}"
-
-            echo "sessions devshell — ruby $(ruby -e 'print RUBY_VERSION')"
-            echo "run the app:     xvfb-run -a ruby exe/sessions"
-            echo "the Qt frontend: xvfb-run -a ruby exe/sessions-qt"
-            echo "run the specs:   rake spec          (75 examples, no display needed)"
-            echo "drive every UI:  rake drive         (three drivers under Xvfb, shots in tmp/shots/)"
-            echo "  one at a time: rake drive:main_window | drive:translations | drive:high_contrast"
-            echo "specs + drivers: rake check"
+            echo "sessions-qt devshell — ruby $(ruby -e 'print RUBY_VERSION')"
+            echo "run the app:     xvfb-run -a ruby exe/sessions-qt"
+            echo "drive it:        xvfb-run -a ruby test/drive_qt.rb   (or: rake drive:qt)"
           '';
         };
       });
