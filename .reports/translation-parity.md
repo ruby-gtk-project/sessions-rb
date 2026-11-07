@@ -129,3 +129,33 @@ German-rendering driver (51/51 checks, DRIVE OK) and a real `gem build`
 are still never exercised in a non-English driver step, and the 360px
 window has never been seen rendered in a long-string language — nobody has
 widened `test/drive_translations.rb` to cover either.
+
+---
+
+## Round nine update
+
+**The 22/33 gap above is stale** — `bfcf14f` (after this report was
+written) widened `test/drive_translations.rb` to open the shortcuts dialog,
+fire the alarm and trigger both background-portal strings under German.
+Reconfirmed this round by running it: the shortcuts dialog's 2 section
+titles + 7 item titles, `Remaining Time`, `05:00`, the two alarm strings
+and the two portal strings all assert German text now, not just the
+window/button/menu/metainfo subset this report describes. 33/33 msgids are
+exercised in German.
+
+**The 360px-window-in-a-long-string-language gap — closed.**
+`test/drive_translations_fr_window.rb`, run as a step of
+`test/drive_translations.rb`, builds the main window under French — the one
+complete (33/33) catalogue with the port's longest translated string
+(`_Démarrer le minuteur`, the action button). It runs as its own process
+under its own D-Bus session (`dbus-run-session`), because gettext resolves
+its catalogue from `ENV["LANGUAGE"]` once per process and a second
+`Gtk::Application` sharing the German run's app id would otherwise lose the
+D-Bus name race and silently hand its activation to the German instance,
+exiting 0 having run nothing — caught in this session only by noticing the
+French-labelled steps never printed, and fixed by giving it an isolated
+bus. The screenshot (`tmp/shots/fr-wrapping.png`) shows the French label
+fitting the button cleanly, no clipping or forced resize; there is no
+reliable pixel assertion for "wrapped correctly" so, consistent with the
+rest of this harness, that is a looked-at-the-picture check, not a
+numeric one.

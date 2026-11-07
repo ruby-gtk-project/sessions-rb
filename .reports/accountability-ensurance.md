@@ -124,3 +124,36 @@ No sentence in the current tree presents a gap as a settled decision. This
 round's finding is not a sentence — it is a working rake task from before
 `cc2c04c` that the same commit silently turned into a broken one, with nine
 commits' worth of ledger-writing since then not mentioning it.
+
+---
+
+## Round nine update — items 1 and 2 of "What closes this" are closed
+
+Took the first option of item 1: `rakelib/spec.rake` now defines
+`DEFAULT_SHELL_DRIVERS = DRIVERS.keys - [:qt]`, scopes `drive` and (through
+it) `check` to that list, and adds `drive:all` — not a prerequisite of
+either — for the four-driver run `nix develop .#qt` can do. Item 2: the
+default shell's banner now reads "the three GTK drivers" for `rake drive`
+and names `drive:qt` and `nix develop .#qt` explicitly on its own line,
+instead of undercounting a fourth task it did not mention at all.
+
+Reconfirmed by running the command this section's example transcript shows
+failing:
+
+```
+$ nix develop --command xvfb-run -a rake check
+... 75 examples, 0 failures ...
+... drive:main_window — 173/173 ...
+... drive:translations — 53/53 (51 German + 2 for the French wrapping
+    check added this round, see translation-parity.md) ...
+... drive:high_contrast — 21/21 ...
+DRIVE OK
+$ echo $?
+0
+```
+
+No `LoadError`, no aborted task, exit 0 — the command the banner
+recommends now does what the banner says. Item 3 (`drive:qt` run to
+completion in `nix develop .#qt`) and item 4 (prior-round items already
+closed) are unchanged by this update; item 3 is covered separately in
+`component-parity.md`.

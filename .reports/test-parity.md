@@ -129,3 +129,39 @@ round's central finding rather than filed only here.
   reproduced independently by me, command by command, not taken on report.
   That gate counts only the three GTK drivers; it does not, and currently
   cannot, cover the Qt frontend or the aggregate rake tasks.
+
+---
+
+## Round nine update
+
+**Open §3 (name-by-name 42/42 reconciliation) — closed.** Ran
+`bin/rspec spec --format documentation` and diffed every `StateMachine`
+example name in the output against `pkg/state/machine_test.go`'s `t.Run`
+case names (and the two non-table functions' own fmt.Sprintf-built names)
+by hand. All 42 upstream cases have exactly one corresponding Ruby example;
+none fell out as the suite grew from 45 to 75. The three extra `StateMachine`
+examples beyond the 42 (`#to_s and #to_graph`) are new coverage upstream has
+no equivalent of, not drift. Full case-by-case correspondence:
+
+| Upstream function (cases) | Ruby `describe` | Cases |
+|---|---|---|
+| `TestPlusTimer` (6) | `#plus_timer` | 6 |
+| `TestMinusTimer` (8) | `#minus_timer` | 8 |
+| `TestStartDragging` (5) | `#start_dragging` | 5 |
+| `TestStopDragging` (5) | `#stop_dragging` | 5 |
+| `TestStopTimer` (3) | `#stop_timer` | 3 |
+| `TestStartTimer` (2) | `#start_timer` | 2 |
+| `TestTimerFinished` (2) | the `timer_finished` trigger | 2 |
+| `TestStopAlarming` (2) | `#stop_alarming` | 2 |
+| `TestEndToEnd` (3) | a whole session | 3 |
+| `TestGetInitialRemainingTimeFromCurrentRemainingTime` (6) | deriving the initial remaining time from the current one | 6 |
+
+**Open §4 (the aggregate rake tasks) — closed.** `rakelib/spec.rake` now
+scopes `drive`/`check` to the three drivers `devShells.default` can run and
+gives the Qt driver its own `drive:all`, never a prerequisite of either.
+Reconfirmed by running `nix develop --command xvfb-run -a rake check` to
+completion in the default shell: `75 examples, 0 failures` plus
+173 (`main_window`) + 53 (`translations`, up from 51 — see
+`translation-parity.md` for the French wrapping check added this round) +
+21 (`high_contrast`) = 247 driver checks, 0 failed, `DRIVE OK`, exit 0 — the
+exact command the shell's own banner now correctly describes.
