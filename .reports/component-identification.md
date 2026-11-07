@@ -3,14 +3,15 @@
 | | |
 |---|---|
 | Upstream | `origin/main` @ `ad77fb2` |
-| Port | `ruby` @ `ca7988e` |
+| Port | `ruby` @ `cc2c04c` |
 | Scan | `.claude/skills/component-identification/scripts/component-scan.sh`, re-run this round over a fresh `git worktree` of `origin/main` and over the current `ruby` checkout |
-| Round | seven |
+| Round | eight |
 
-Re-run from scratch rather than inherited from `.reports/component-identification.md`
-(last written at `7b8930e`, which predates the Qt port and the Flatpak
-manifest and still lists the Qt frontend as having "no port counterpart at
-all" — false since `0f80f06`).
+Re-checked against `HEAD`. No commit between `ca7988e` (round seven) and
+`cc2c04c` (this round — `121bf1d`, `5865a3d`, `cc2c04c`) touched a file this
+report's unit table names, so the inventory below is unchanged in substance;
+what changed is which claims are now backed by an actual run rather than a
+reading, recorded in Unit 7's row.
 
 Step 1 first, both sides: upstream's declarative UI is still exactly two
 blueprint files, confirmed unchanged by `cmp`-diffing this round's
@@ -38,7 +39,7 @@ now has a port file where round six's inventory correctly recorded none:**
 | 4 | dial | `dial.go` | `lib/dial.rb` | unchanged |
 | 5 | shortcuts dialog | `shortcuts-dialog.blp` | `lib/shortcuts_dialog.rb` | unchanged |
 | 6 | about dialog | `application.go:76-92` + `metainfo.xml.in` | `lib/about_dialog.rb`, `lib/metainfo.rb` | **changed**: the four invented `add_link` rows (`Donate`, `Translate`, `Source Code`, `Contribute`) are gone (`83cfb05`) — confirmed by reading `lib/about_dialog.rb:95-111`, which marks only `translator-credits` now |
-| 7 | Qt/Kirigami frontend | `qt/main.go` (46 lines), `qt/main.qml` (52 lines) | `lib/qt_application.rb` (64 lines), `exe/sessions-qt`, `lib/sessions/qt.rb`, `data/qt/main.qml` (byte-identical to upstream's) | **new this round** (`0f80f06`) — a real unit with a real port file, where round six correctly recorded a total gap. It is **written, not driven**: see `component-parity.md` Unit 7 |
+| 7 | Qt/Kirigami frontend | `qt/main.go` (46 lines), `qt/main.qml` (52 lines) | `lib/qt_application.rb` (64 lines), `exe/sessions-qt`, `lib/sessions/qt.rb`, `data/qt/main.qml` (byte-identical to upstream's) | written, **still never driven to completion**, and this round found a more concrete reason than contention: `lib/qt_application.rb:3` requires `qt6/qtwidgets`, a gem that only exists in the separate `nix develop .#qt` shell `cc2c04c` split out this round. Run in the project's own default shell, `test/drive_qt.rb` fails with `LoadError: cannot load such file -- qt6/qtwidgets`, confirmed by me running it. See `component-parity.md` Unit 7 and `accountability-ensurance.md` |
 
 The scan still produces **no rows** for either `qt/main.go`/`qt/main.qml` or
 `lib/qt_application.rb`/`data/qt/main.qml` — re-confirmed this round by

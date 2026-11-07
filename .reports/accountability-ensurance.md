@@ -3,138 +3,124 @@
 | | |
 |---|---|
 | Upstream | `origin/main` @ `ad77fb2` |
-| Port | `ruby` @ `ca7988e` |
-| Scan | `.claude/skills/accountability-ensurance/scripts/find-excuses.sh` over `lib/`, `exe/`, `.reports/`, `PORTING.md`, plus `TODO`/`FIXME`/`not implemented`/`for now`/`in a future` greps |
-| Round | seven |
-| Verdict | **clean=false** — not because of a new excuse in prose, but because the ledgers this org's own accountability round reports as green cannot be reconfirmed, and were never regenerated after the work that followed them |
+| Port | `ruby` @ `cc2c04c` |
+| Scan | `grep -rniE "TODO|FIXME|not implemented|for now|in a future|XXX|dropped deliberately|not applicable|out of scope|by design|simplified"` over `lib/`, `exe/`, `.reports/`, `PORTING.md`, plus a line-by-line read of every green claim against an actual run |
+| Round | eight |
+| Verdict | **clean=false** — one real finding, described below. `lib/` and `exe/` still scan clean for deferral markers; that part holds unchanged |
 
-`lib/` and `exe/` scan clean. `grep -rniE "TODO|FIXME|not implemented|for now|in a future|XXX" lib/ exe/` returns nothing. That part of round six's finding still holds.
-
-**What is wrong this round is not a sentence anyone wrote. It is a document
-that stopped being written.**
-
----
-
-## The false green: `.reports/drive-verification.md`
-
-This file, unmodified since commit `14fcee4`, says:
-
-> `175 of 175 checks passed` / `DRIVE OK`, 11 screenshots
-
-and is cited by `PORTING.md` and by this org's own practice as the evidence
-that the main window, dial, menus and dialogs work. It is **five commits
-behind `HEAD`** (`14fcee4..ca7988e`: `83cfb05`, `bf51215`, `bfcf14f`,
-`0f80f06`+`99f75f9`+`f7a6bd1`+`aa49212`, `ca7988e`) — the dial's high-contrast
-fix, the About-dialog link rows' removal, the German-translation assertions,
-the entire Qt frontend, and the Flatpak manifest all post-date the only driver
-run this file records.
-
-This round's runtime gate is **`drive_ok=false`, 0 checks passed, 0 failed,
-across 8 components.** I tried to reconfirm the 175/175 claim myself, in this
-session, in the project's own dev shell:
-
-```
-nix develop --command xvfb-run -a ruby test/drive_main_window.rb
-nix develop --command bash -c "rake schema:compile && bin/rspec spec ..."
-```
-
-Both were started and both sat for **over six minutes and three minutes
-respectively, producing zero lines of output**, blocked on a read from the
-nix-daemon's unix socket (`/proc/<pid>/wchan` → `unix_stream_read_generic`),
-while the host's load average held between 6 and 17 the entire time — other
-agents on this shared machine running their own `nix develop` concurrently.
-Neither run reached a single check. That is not a reading of the runtime
-gate's `drive_ok=false`; it is the same result, reproduced independently.
-
-**So the file that is supposed to be this port's evidence of a working app
-asserts a number — 175/175 — that nobody in this round, including me, was able
-to make happen even once, on a tree five commits newer than the one it was
-measured against.** Whether the drivers would actually pass on `ca7988e` is
-unknown. `.reports/drive-verification.md` does not say "unknown"; it says
-"DRIVE OK", dated to a commit the repository has moved past. A reader who
-trusts the file's own timestamp has no way to know that.
-
-**This is the exact failure mode the skill exists to name**, one level up
-from a sentence: a status that was true once, presented with no caveat as
-though it still is, read by every subsequent round (`PORTING.md`'s "Done"
-table, `COMPONENT_PARITY.md`'s "Driven" row) as current fact. Nobody wrote
-"I didn't re-run this" anywhere. The silence is the excuse.
-
-I did not re-run the drivers to completion this round and cannot certify the
-175/175 or the 45-example suite as current, because the shared machine would
-not finish either job in the time available — and that sentence belongs here,
-in the open, rather than left for `.reports/drive-verification.md` to keep
-implying by its continued presence that nothing has changed since.
+Round seven's finding was that the ledgers claimed green on numbers nobody
+had reconfirmed since `14fcee4`, because a shared machine's `nix develop`
+never finished. That infrastructure problem is genuinely fixed this round
+(`cc2c04c` split the Qt native build out of `devShells.default`), and I
+reconfirmed, by running them myself in this session, that all three GTK
+drivers and the RSpec suite pass: 173+51+21 = 245 checks, 0 failed; 75
+examples, 0 failures. That part of this round's work is not an excuse and
+does not belong in this report as a finding — it is the gap round seven
+named, actually closed.
 
 ---
 
-## All five `.reports/*.md` are stale relative to `HEAD`, by different amounts
+## The finding: the fix for the six-unit problem quietly broke the seventh unit's own test runner, and nothing says so in the open
 
-| File | Last touched | Commits behind `HEAD` (`ca7988e`) it does not reflect |
-|---|---|---|
-| `.reports/drive-verification.md` | `14fcee4` | `83cfb05`, `bf51215`, `bfcf14f`, `0f80f06`, `99f75f9`, `f7a6bd1`, `aa49212`, `ca7988e` — 8 commits, including the dial fix, the About-dialog fix, the German assertions, the whole Qt port, and the Flatpak manifest |
-| `.reports/translation-parity.md` | `7b8930e` | predates `83cfb05` (which deleted the four invented About-dialog link msgids this file's Open §1 is built around) and `bfcf14f` (which added the German assertions its Open §3 says do not exist) — **both of its two substantive findings have since been addressed in the tree it is still describing as broken** |
-| `.reports/component-identification.md` | `7b8930e` | predates the Qt port and the Flatpak manifest; still describes the Qt frontend as a unit with no port file ("no port counterpart at all"), which has been false since `0f80f06` |
-| `.reports/accountability-ensurance.md` (the previous round's copy, overwritten by this one) | `bf51215` | predates the Qt port and the Flatpak manifest entirely |
-| `.reports/component-parity.md` | `83cfb05` | predates `bfcf14f`, `bf51215`, and all of the Qt/Flatpak work; its "3/7 units at parity" count has no Qt or Flatpak row at all |
+`cc2c04c`'s commit message is "Split the Qt build out of devShells.default
+and **confirm every driver**." `PORTING.md`'s **Runtime** section, written
+by that same round, lists five commands it says "every command below was
+run to completion this round" and then lists the three GTK drivers plus
+`rspec` and the schema/mo build steps — each invoked as a **direct `ruby`
+script**, not through `rake`. That phrasing is carefully, and correctly,
+scoped: it does not claim `rake drive` or `rake check` work. Read narrowly,
+nothing in `PORTING.md` is false.
 
-Compare this to the **root-level** ledgers, which this round's commits kept
-current: `COMPONENT_PARITY.md` was touched at `ca7988e` itself (the tip),
-`TRANSLATION_PARITY.md` at `bfcf14f`, `TEST_PARITY.md` at `bf51215`. The
-directory this task asked me to audit and refresh — `.reports/` — is
-systematically behind the directory the port's own process already keeps
-current. Two ledgers of the same claims exist and they disagree, because one
-of them is updated and the other is not.
+**But nothing in `PORTING.md`, `COMPONENT_PARITY.md`, `TEST_PARITY.md`, or
+any `.reports/*.md` before this round's rewrite said the opposite either —
+that the aggregate rake tasks the dev shell's own banner recommends are now
+broken.** I found this only by running the thing the banner tells a user to
+run:
 
-**Consequence already found by acting on it**: `.reports/translation-parity.md`'s
-headline verdict — "**Not at parity**... 4 extra [msgids]" — is wrong *today*.
-I independently re-ran the check it describes against current `HEAD`:
-
-```sh
-git show origin/main:po/sessions.pot | grep '^msgid' | sort > up.ids
-grep '^msgid' po/sessions.pot | sort > port.ids
-diff up.ids port.ids
-# 2a3
-# > msgid ""        — a wrapped continuation line, not a key
+```
+$ nix develop --command xvfb-run -a rake check
+... (schema compile, gettext build, 75 examples 0 failures) ...
+... (drive:main_window — 173/173) ...
+... (drive:translations — 51/51) ...
+... (drive:high_contrast — 21/21) ...
+xvfb-run -a ruby test/drive_qt.rb
+/nix/.../bundled_gems.rb:82:in 'Kernel.require': cannot load such file -- qt6/qtwidgets (LoadError)
+	from lib/qt_application.rb:3
+rake aborted!
 ```
 
-Zero extra keys, zero missing keys. `lib/about_dialog.rb` no longer calls
-`add_link` at all — `commit 83cfb05` removed it. A reader who opened only
-`.reports/translation-parity.md`, which this task directed me to, would be
-told the port is not at parity for a reason that stopped being true two
-rounds ago, and would have no way to know without re-deriving the diff
-themselves, which is what found it.
+`rakelib/spec.rake`'s `DRIVERS` hash has always had four entries
+(`main_window`, `translations`, `high_contrast`, `qt`), and `task drive:
+DRIVERS.keys.map { |name| "drive:#{name}" }` has always depended on all
+four — this is not new to `cc2c04c`. What *is* new to `cc2c04c` is that the
+Qt gems used to be present in `devShells.default` too (at the cost of a slow
+build every time), so `rake drive`/`rake check` in the default shell, before
+this round, would eventually succeed once the build finished. After
+`cc2c04c` moved those gems to `devShells.qt`, the default shell no longer
+has `qt6/qtwidgets` at all — not slow, **absent**. `rake drive` and `rake
+check`, run the way the dev shell's own banner tells a user to run them, now
+fail unconditionally, every time, in the project's documented default
+environment. The dev-shell banner itself still says "drive every UI: `rake
+drive` (three drivers under Xvfb...)" — three, undercounting the fourth
+task it actually depends on, which is the one now broken.
 
----
+**This is the accountability pattern the skill exists to catch, one level
+up from a sentence in prose**: a round fixed a real problem (contention),
+wrote accurately-scoped sentences about what it had verified, and a
+regression the fix itself introduced sits in the gap between "what
+`PORTING.md` claims" and "what a user who follows the banner's own
+instructions gets" — true by omission, not by any false sentence. Nobody
+wrote "rake check now fails" anywhere, including in the commit that caused
+it. The silence is the excuse, same shape as round seven's, different
+mechanism.
 
-## What the scan's other hits are
+### Why this is not merely cosmetic
 
-Every hit `find-excuses.sh` reports outside the above is prose *about* a past
-excuse, in a rewrite ledger (`PORTING.md`'s numbered "Open gaps" list,
-`.reports/accountability-ensurance.md`'s own prior "worked rewrites" section,
-`COMPONENT_PARITY.md`'s note correcting its own Qt row). The skill names this
-exemption explicitly — "a document *about* excuses... you should not
-rewrite" — and each one I opened quotes the old wording only to say what it
-now says instead, which is the rule's own prescribed form, not a live excuse.
-`LICENSE.md:423,425` is the AGPL-3.0 text itself ("Not Required"), unrelated
-to the port. None of these needed rewriting.
-
-What they do **not** cover is the omission described above, because an
-omission has no sentence for the grep to find. That is the whole point of
-checking the commit history against the claims rather than the prose alone.
+A reader of this round's gate (`drive_ok=true, 245 checks passed, 0 failed,
+16 components`) who then tries to reproduce it the way the project's own
+tooling tells them to — `rake check`, the one-line command `check:
+["spec", "drive"]` exists specifically to make unnecessary to assemble by
+hand — gets a `LoadError` and a non-zero exit, not 245/245. The gate is true
+of the three individual driver invocations; it is not true of the
+project's own aggregate entry point. Both of those are facts about the same
+tree, and only one of them is in any ledger before this round's rewrite.
 
 ---
 
 ## What closes this
 
-1. `.reports/drive-verification.md` needs a real re-run against `ca7988e`,
-   not a restatement of `14fcee4`'s numbers with a new date on it. Until the
-   shared machine allows one, the file should say **unconfirmed since
-   `14fcee4`**, not `DRIVE OK`.
-2. `.reports/translation-parity.md`, `.reports/component-parity.md`, and
-   `.reports/component-identification.md` need to be regenerated from the
-   current tree (this round's copies, below, do that) rather than patched —
-   their "Open" sections describe bugs that the commit log says are fixed.
-3. Whatever process writes `.reports/` on each round needs to run on every
-   round, the same as the one writing the root ledgers does. A ledger that is
-   updated four rounds out of five is the fifth round's false green, waiting.
+1. Either give `drive:qt` and `drive` separate rake tasks — `drive` covers
+   what the default shell can run, a `drive:all`/`check:all` explicitly
+   requires `nix develop .#qt` — or make `rake drive`/`rake check` detect
+   the missing gem and skip the Qt driver with a visible warning rather
+   than aborting the whole task list. Either fix is a few lines in
+   `rakelib/spec.rake`; neither has been written yet.
+2. The dev-shell banner's "three drivers" line needs to say four, and name
+   which one needs the other shell, so the undercounting itself is not the
+   next round's rediscovery.
+3. `test/drive_qt.rb` still needs to actually run to completion, in
+   `nix develop .#qt`, by some round — it was still mid-build (`cc1plus`
+   compiling `ruby-qt6-qtwidgets`, confirmed via `ps`) when this round's
+   time ran out, so Unit 7 of `component-parity.md` remains open on its own
+   terms regardless of the rake-task finding above.
+4. Confirmed genuinely closed this round, not carried as open: `.reports/*.md`
+   are now current against `cc2c04c` (this rewrite); `gem build` was run
+   and 26/26 `.mo` files confirmed packaged; `test/drive_translations.rb`
+   was run and the German-rendering claim confirmed at 51/51, not 5/5 as
+   the stale report said.
+
+---
+
+## Scan results, for completeness
+
+`grep -rniE "TODO|FIXME|not implemented|for now|in a future|XXX" lib/ exe/`
+returns nothing — unchanged since round six. The deferral-marker scan over
+`.reports/` and `PORTING.md` finds only prose *about* past excuses (corrected
+quotes, "this used to say X, now says Y"), which the skill's own exemption
+covers; none needed rewriting. `LICENSE.md`'s "Not Required" is AGPL-3.0
+boilerplate text, unrelated to the port.
+
+No sentence in the current tree presents a gap as a settled decision. This
+round's finding is not a sentence — it is a working rake task from before
+`cc2c04c` that the same commit silently turned into a broken one, with nine
+commits' worth of ledger-writing since then not mentioning it.

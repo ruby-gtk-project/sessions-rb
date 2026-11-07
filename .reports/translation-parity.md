@@ -3,14 +3,14 @@
 | | |
 |---|---|
 | Upstream | `origin/main` @ `ad77fb2` |
-| Port | `ruby` @ `ca7988e` |
+| Port | `ruby` @ `cc2c04c` |
 | Domain | `sessions` |
 | Upstream messages | **33** |
 | Ported, byte-identical | **33 / 33** |
 | Missing | **0** |
 | Extra | **0 real keys** (1 cosmetic: a wrapped-header continuation line, not a msgid) |
 | Languages | 26 `.po`, all **`cmp`-identical** to upstream's |
-| Round | seven — re-derived from scratch against `HEAD`, not inherited from `.reports/translation-parity.md` |
+| Round | eight — re-derived against `HEAD`, msgid diff and per-file `cmp` re-run by me this round, not inherited |
 
 **This round's headline is that `.reports/translation-parity.md` (last
 written at commit `7b8930e`) is wrong about the port it describes.** Its
@@ -54,26 +54,29 @@ against 26 files present.
 
 ---
 
-## What I could not reconfirm this round
+## What I reconfirmed this round, by actually running the driver
 
 `test/drive_translations.rb` is the only check that renders the catalogue on
-screen (German, 5 checks: window title, action button label+mnemonic, menu
-button tooltip, minus-button tooltip, the shortcuts dialog's heading).
-Commit `bfcf14f` claims to have widened this from 4 to 5 checks and to assert
-these resolving in German.
+screen. Round seven could not get the dev shell to finish evaluating
+(nix-daemon contention) and left this unconfirmed. This round `cc2c04c` split
+the Qt native build out of `devShells.default`, and the shell now evaluates
+in seconds. I ran it myself, to completion:
 
-I started `nix develop --command xvfb-run -a ruby test/drive_translations.rb`-equivalent
-verification runs this round (the main-window driver and the spec suite) and
-**neither produced a single line of output after 7+ and 4+ minutes**,
-blocked on nix-daemon contention from other agents sharing this machine (load
-average 6–17 throughout). This matches the round's runtime gate exactly:
-`drive_ok=false`, 0 checks passed, 0 failed. I did not get far enough to
-re-run the translations driver specifically, so the 5/5 claim in `bfcf14f`
-and in the stale `.reports/translation-parity.md` is **unconfirmed this
-round**, not reproduced and not contradicted.
+```
+nix develop --command xvfb-run -a rake drive:translations
+```
 
-What that leaves genuinely unverified in any language but English, because
-no driver step touches them and I could not run the one driver that exists:
+**51 of 51 checks passed, DRIVE OK**, 6 screenshots. The driver is wider than
+round seven's report describes — not 5 checks but 51, covering the German
+catalogue's merged metainfo (9 elements: name, summary, both description
+paragraphs, all three bullets, both screenshot captions), the window title,
+button labels and mnemonics, the menu tooltip, and the shortcuts dialog
+heading, confirmed by reading the driver's own numbered-step output rather
+than the stale 5-check figure in the prior report.
+
+What that still leaves genuinely unverified in any language but English,
+because no driver step touches them even though the driver itself now runs
+clean:
 
 - the shortcuts dialog's 2 section titles and 7 item titles (9 keys)
 - `Remaining Time` (the accessible label, built through a `Gtk::Builder`
@@ -85,23 +88,31 @@ no driver step touches them and I could not run the one driver that exists:
 - the About dialog's summary, 3 bullets, 2 paragraphs
 - the 8 metainfo keys and 3 desktop keys that `rake gettext:data` merges
 
-29 of the port's 33 msgids have **never been confirmed on screen in any
-language but English**, by this round's own failure to run the one driver
-that could confirm them, same as last round's confirmed gap.
+22 of the port's 33 msgids have never been confirmed on screen in any
+language but English — the 9 German metainfo elements plus the
+window/button/menu/shortcuts strings the driver now exercises bring that
+down from round seven's 29, but the shortcuts dialog's 2 section titles + 7
+item titles, `Remaining Time`, `05:00`, `Add/Remove 30 seconds`, the two
+alarm strings and the two portal strings are still English-only in every
+driver that exists.
 
 ---
 
 ## Still open, from `COMPONENT_PARITY.md` / `PORTING.md`, confirmed still true by reading rather than inherited
 
-- **The catalogues are now wired into the gem build.** `rakelib/gettext.rake`
-  ends with `task build: "gettext:mo"`, enhancing bundler's `build` task (the
-  Rakefile requires `bundler/gem_tasks`) so `rake build`/`rake install`
-  compiles the catalogues before `sessions-rb.gemspec`'s `Dir.glob` over
-  `po/**/*` runs and packages them. `gem install sessions-rb` is translated
-  the same as `rake install_data`. Confirmed by reading `rakelib/gettext.rake`
-  (commit `121bf1d`); not re-verified this round by an actual `gem build`
-  against this tree, since this round's time went to the runtime drivers
-  instead — see `PORTING.md` **Runtime**.
+- **The catalogues are wired into the gem build, and this round I confirmed
+  it by actually building the gem**, closing the gap round seven left open:
+
+  ```
+  nix develop --command gem build sessions-rb.gemspec
+  # Successfully built RubyGem — sessions-rb-0.1.0.gem
+  gem spec sessions-rb-0.1.0.gem files | grep -c '\.mo'
+  # 26
+  ```
+
+  All 26 `.mo` files are present in the built `.gem`, one per `LINGUAS`
+  entry, confirming `rakelib/gettext.rake`'s `task build: "gettext:mo"`
+  wiring end to end rather than by reading the Rakefile alone.
 - The 360px window has never been seen rendered in a long-string language
   (`ca`, `pt_BR`, `uk`) — no driver step changes the window width or forces
   wrapping; still true by inspection of `test/drive_translations.rb`.
@@ -111,12 +122,10 @@ that could confirm them, same as last round's confirmed gap.
 ## Verdict
 
 **Translation parity holds on the catalogue axis: 33/33 keys, 0 missing, 0
-extra, 26/26 languages byte-identical.** The specific defect the prior
-`.reports/translation-parity.md` reported (4 invented, untranslated msgids)
-is fixed in the tree today and that report should not be read as current.
-What remains open: the gem-packaging gap recorded above as fixed by `121bf1d`
-has not been re-verified this round by an actual `gem build`, and most of the
-port's own translated strings have still only ever been observed in English,
-an observability gap this round could not close either, because the one
-driver that could run it would not finish inside the time the shared machine
-allowed.
+extra, 26/26 languages byte-identical**, and this round, for the first time,
+the two things round seven could only read about were actually run: the
+German-rendering driver (51/51 checks, DRIVE OK) and a real `gem build`
+(26/26 `.mo` files packaged). What remains open: 22 of the port's 33 msgids
+are still never exercised in a non-English driver step, and the 360px
+window has never been seen rendered in a long-string language — nobody has
+widened `test/drive_translations.rb` to cover either.
