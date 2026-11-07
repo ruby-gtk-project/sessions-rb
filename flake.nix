@@ -449,10 +449,10 @@
             echo "sessions devshell — ruby $(ruby -e 'print RUBY_VERSION')"
             echo "run the app:     xvfb-run -a ruby exe/sessions"
             echo "run the specs:   rake spec          (75 examples, no display needed)"
-            echo "drive every UI:  rake drive         (three drivers under Xvfb, shots in tmp/shots/)"
+            echo "drive every UI:  rake drive         (the three GTK drivers under Xvfb, shots in tmp/shots/)"
             echo "  one at a time: rake drive:main_window | drive:translations | drive:high_contrast"
             echo "specs + drivers: rake check"
-            echo "the Qt frontend lives in its own shell: nix develop .#qt"
+            echo "the Qt frontend's driver (a fourth, drive:qt) needs its own shell: nix develop .#qt --command xvfb-run -a rake drive:qt"
           '';
         };
 

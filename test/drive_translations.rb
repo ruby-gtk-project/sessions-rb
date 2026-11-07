@@ -329,5 +329,30 @@ GtkDriver.drive(app, shots: SHOTS) do |d, application|
     end
   end
 
+  # French, run as its own process: see
+  # test/drive_translations_fr_window.rb for why German and French cannot
+  # share this one. Run before the window closes below — closing it quits
+  # this application, and the loop that still has to call this step never
+  # gets another tick after that.
+  #
+  # `dbus-run-session` gives it a session bus of its own: without one, its
+  # Gtk::Application tries to register under the same app id this process's
+  # German window already holds on the real session bus, loses, and
+  # silently hands its activation off to the German instance instead of
+  # ever running its own steps — the run still exits 0, so this is a false
+  # pass caught only by noticing the French steps never printed.
+  d.step("the window also renders without clipping under French") do
+    ok = system(
+      "dbus-run-session", "--",
+      RbConfig.ruby,
+      File.expand_path("drive_translations_fr_window.rb", __dir__),
+    )
+    shot_path = File.join(SHOTS, "fr-wrapping.png")
+    d.check("the French process exited clean") { ok }
+    d.check("and actually wrote the screenshot, not just exited 0") do
+      File.exist?(shot_path) && File.size(shot_path).positive?
+    end
+  end
+
   d.step("the window closes") { window.call.close_window_action.activate(nil) }
 end

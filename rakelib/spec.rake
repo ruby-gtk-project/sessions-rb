@@ -75,8 +75,19 @@ namespace :drive do
   end
 end
 
-desc "Run every UI driver headlessly under Xvfb"
-task drive: DRIVERS.keys.map { |name| "drive:#{name}" }
+# The Qt/Kirigami driver needs the `qt6/qtwidgets` gem, which only
+# `devShells.qt` provides (see flake.nix): `devShells.default` is GTK-only so
+# the C++ extension it comes from is never compiled there. `rake drive` and
+# `rake check` are what the default shell's own banner tells a user to run,
+# so they stay scoped to what that shell can execute; `drive:qt` runs on its
+# own, from `nix develop .#qt`, and is never a prerequisite of either.
+DEFAULT_SHELL_DRIVERS = DRIVERS.keys - [:qt]
 
-desc "Run the specs and every driver"
+desc "Run every UI driver that devShells.default can run, headlessly under Xvfb"
+task drive: DEFAULT_SHELL_DRIVERS.map { |name| "drive:#{name}" }
+
+desc "Run every UI driver, including the Qt frontend (needs devShells.qt)"
+task "drive:all" => DRIVERS.keys.map { |name| "drive:#{name}" }
+
+desc "Run the specs and every driver devShells.default can run"
 task check: ["spec", "drive"]
