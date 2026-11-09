@@ -8,9 +8,16 @@ name: Flatpak CI
 # upstream's unchanged — only the manifest module itself tells the two builds
 # apart.
 
+permissions:
+  contents: read
+
 on:
   push:
   pull_request:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
   build-linux:
@@ -31,7 +38,7 @@ jobs:
             runner: ubuntu-24.04-arm
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build Flatpak and upload output
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
@@ -48,9 +55,9 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Download output
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: /tmp/out
       - name: Extract branch name

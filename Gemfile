@@ -65,7 +65,3 @@ group :development do
   gem "rubocop"
 end
 
-# gtk4, adwaita and gettext are the app's RUNTIME dependencies and are declared
-# in sessions-rb.gemspec, which `gemspec` above pulls in. They are not repeated
-# here; a gem that only the Gemfile knows about is a gem an installed copy of
-# this app cannot find.

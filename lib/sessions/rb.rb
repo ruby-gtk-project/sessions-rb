@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "rb/version"
-
 # `sessions/rb` is the gem-named entry point: the gem is published as
 # `sessions-rb`, so `require "sessions/rb"` is the path a consumer and
 # spec/spec_helper.rb reach for. Before this file existed, spec_helper.rb:26
@@ -13,6 +11,8 @@ require_relative "rb/version"
 # one. Keeping that out of the default require is what lets the specs covering
 # non-widget code (lib/state_machine.rb, lib/metainfo.rb) run with no display
 # at all; a spec that drives widgets requires `sessions` itself.
+require_relative "rb/version"
+
 module Sessions
   module Rb
   end

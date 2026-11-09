@@ -10,6 +10,9 @@
 # point the dev shell banner and PORTING.md name.
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [ruby]
@@ -25,12 +28,12 @@ jobs:
     name: RSpec suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: rake spec
         run: nix develop --command rake spec
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: test-results
@@ -41,7 +44,7 @@ jobs:
     name: UI drivers
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
       # The drivers render the real widget tree under Xvfb and assert what
@@ -49,7 +52,7 @@ jobs:
       # how a reviewer sees what the port looks like without building it.
       - name: rake drive
         run: nix develop --command rake drive
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: screenshots
@@ -60,7 +63,7 @@ jobs:
     name: Translation catalogues
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
       # msgfmt -c --check-format over all 26 catalogues, which is the check
