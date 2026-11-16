@@ -11,6 +11,7 @@
 # one. Keeping that out of the default require is what lets the specs covering
 # non-widget code (lib/state_machine.rb, lib/metainfo.rb) run with no display
 # at all; a spec that drives widgets requires `sessions` itself.
+
 require_relative "rb/version"
 
 module Sessions
